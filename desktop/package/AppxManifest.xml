@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gives Nyx a package identity so Windows lets it own the Bluetooth
+     hands-free link (call audio on the laptop). Registered loose, for your own
+     PC only, by register-package.ps1. Needs Developer Mode. -->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+         xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+         IgnorableNamespaces="uap rescap desktop desktop6">
+  <Identity Name="AMAk.Nyx" Publisher="CN=NyxDev" Version="1.4.1.0" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>Nyx</DisplayName>
+    <PublisherDisplayName>Nyx</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!-- settings and pairings live in the normal %APPDATA%\Nyx, not a per-package copy
+         that Windows deletes on uninstall: an update must never forget your phone -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Applications>
+    <Application Id="App" Executable="Nyx.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Nyx"
+                          Description="Calls, texts and notifications from your Android phone"
+                          BackgroundColor="transparent"
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <!-- starts with Windows (minimised to the tray); switch off in Nyx > Settings or Task Manager > Startup apps -->
+        <desktop:Extension Category="windows.startupTask" Executable="Nyx.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="NyxStartup" Enabled="true" DisplayName="Nyx" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+    <rescap:Capability Name="phoneLineTransportManagement" />
+    <DeviceCapability Name="bluetooth" />
+    <DeviceCapability Name="microphone" />
+  </Capabilities>
+</Package>

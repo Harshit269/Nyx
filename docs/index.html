@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="en" data-repo="">
+<!-- data-repo: set to "owner/repo" if the site isn't on owner.github.io/repo (custom domain). -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  // theme before first paint: saved choice, else the system setting
+  (function () {
+    var t = null; try { t = localStorage.getItem("nyx-theme"); } catch (e) {}
+    if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    document.documentElement.className = "js";
+  })();
+</script>
+<title>Nyx — your Android phone on your Windows laptop</title>
+<meta name="description" content="Notifications, texts, calls, screen mirroring at 120 fps, webcam, mic and sound: your Android phone on your Windows laptop. Encrypted, no account, no cloud. Free and open source.">
+<meta property="og:title" content="Nyx — your phone, on your laptop">
+<meta property="og:description" content="Calls, texts and notifications from Android on Windows. Encrypted, no account, no cloud.">
+<meta property="og:image" content="img/overview.png">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@800;900&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #000; --card: #0c0c0c; --card2: #151515; --line: #1f1f1f; --line2: #2e2e2e;
+    --ink: #f2f2f2; --mute: #8a8a8a; --dotc: #1d1d1d; --bar: #262626; --glass: rgba(0,0,0,.78);
+    --toast: rgba(20,20,20,.94); --dot-rgb: 255,255,255; --shadow: rgba(0,0,0,.85);
+    --red: #d71921; --red-text: #ff4a50; --green: #3ddc84; --green-text: #3ddc84;
+  }
+  [data-theme="light"] {
+    color-scheme: light;
+    --bg: #f1f1ef; --card: #fff; --card2: #ebebe8; --line: #e2e2df; --line2: #cfcfcb;
+    --ink: #0a0a0a; --mute: #646464; --dotc: #d9d9d5; --bar: #e3e3e0; --glass: rgba(241,241,239,.8);
+    --toast: rgba(255,255,255,.96); --dot-rgb: 0,0,0; --shadow: rgba(0,0,0,.14);
+    --red-text: #c4161d; --green-text: #148a4a;
+  }
+  :root {
+    --dot: "Doto", ui-monospace, monospace;
+    --mono: "Space Mono", ui-monospace, Consolas, monospace;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --spring: cubic-bezier(.34, 1.56, .64, 1);
+    --r: 22px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.6 Inter, system-ui, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased;
+         transition: background-color .5s ease, color .5s ease; }
+  a { color: inherit; }
+  img { max-width: 100%; height: auto; display: block; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  main { overflow-x: clip; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  :focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+  ::selection { background: var(--red); color: #fff; }
+
+  /* theme reveal: a copy of the page in the new theme, shown through a gooey dotted SVG mask */
+  .theme-ghost { position: fixed; top: 0; left: 0; height: 100vh; z-index: 25; overflow: hidden; pointer-events: none;
+           background: var(--bg); color: var(--ink); font: 400 16px/1.6 Inter, system-ui, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased;
+           -webkit-mask: url(#reveal-mask); mask: url(#reveal-mask); }
+  /* the copy is a still frame: no entrance animations replaying inside it */
+  .theme-ghost *, .theme-ghost *::before, .theme-ghost *::after { animation: none !important; transition: none !important; }
+  .theme-ghost h1 .ch { opacity: 1; filter: none; transform: none; }
+  .theme-ghost .ghost-head { position: absolute; top: 0; left: 0; right: 0; }
+  /* the real switch rides above the copy while it plays */
+  .switch-lift { position: fixed; z-index: 30; }
+  /* while the blob spreads, the button sits on a solid disc so the blob's dots never mix with its icon dots */
+  .switch-lift.grow .theme { box-shadow: 0 0 0 8px var(--bg), 0 0 0 9px var(--line2); } /* ring eases in after the click */
+  .switch-lift .theme { background: var(--bg); border-color: var(--ink);
+                        animation: liftPop .6s var(--spring); }
+  .switch-lift .theme circle.o { opacity: 0; }
+  /* ring shrinks away while the blob is still finishing, so it's gone by the time the theme lands */
+  .switch-lift.settle .theme { border-color: var(--line2); box-shadow: 0 0 0 0 var(--bg), 0 0 0 0 var(--line2);
+                               transition: border-color .7s, box-shadow .7s cubic-bezier(.45, 0, .25, 1); }
+  @keyframes liftPop { 0% { scale: 1; } 35% { scale: 1.18; } 100% { scale: 1; } }
+  /* the swap itself must be instant, or colour transitions would fade from the old theme */
+  .swapping, .swapping * { transition: none !important; }
+
+  .mono { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+  .reddot { display: inline-block; width: .32em; height: .32em; border-radius: 50%; background: var(--red); margin-left: .06em; }
+  .dots { background: radial-gradient(circle, var(--dotc) 1px, transparent 1.4px) 0 0 / 14px 14px, var(--card); }
+
+  /* scroll progress */
+  .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: var(--red); transform-origin: 0 50%; transform: scaleX(0); z-index: 30; }
+
+
+  /* header: hides when scrolling down, comes back when scrolling up */
+  header { position: sticky; top: 0; z-index: 20; background: var(--glass); backdrop-filter: blur(14px); border-bottom: 1px solid transparent;
+           transition: transform .45s var(--ease), border-color .3s, background-color .5s; }
+  header.scrolled { border-color: var(--line); }
+  header.away { transform: translateY(-100%); }
+  header .wrap { display: flex; align-items: center; gap: 14px; height: 62px; }
+  .logo { font: 900 26px/1 var(--dot); letter-spacing: 3px; text-decoration: none; display: inline-flex; align-items: baseline; }
+  .logo .reddot { transition: transform .4s var(--spring); }
+  .logo:hover .reddot { transform: scale(1.8); }
+  .ver { font: 400 11px/1 var(--mono); color: var(--mute); border: 1px solid var(--line2); border-radius: 99px; padding: 6px 10px; }
+  nav { display: flex; align-items: center; gap: 24px; margin-left: auto; }
+  nav a { position: relative; font: 400 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); text-decoration: none; transition: color .2s; }
+  nav a:not(.gh)::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--red);
+                          transform: scale(0); transition: transform .3s var(--spring); }
+  nav a:hover, nav a.here { color: var(--ink); }
+  nav a:hover::after, nav a.here::after { transform: scale(1); }
+  nav .gh { color: var(--ink); border: 1px solid var(--line2); border-radius: 99px; padding: 10px 15px; transition: border-color .2s, background .2s, color .2s; }
+  nav .gh:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  /* theme button: a tiny 7x7 dot-matrix display that morphs between a moon (dark) and a sun (light) */
+  .theme { width: 40px; height: 40px; padding: 0; flex: none; border-radius: 50%; border: 1px solid var(--line2); background: transparent;
+           display: grid; place-items: center; transition: border-color .2s, background .2s; }
+  .theme { box-shadow: 0 0 0 0 var(--bg), 0 0 0 0 var(--line2); transition: border-color .4s, box-shadow .6s cubic-bezier(.45, 0, .25, 1); }
+  .theme:hover, .theme.ring { border-color: var(--ink); box-shadow: 0 0 0 8px var(--bg), 0 0 0 9px var(--line2); }
+  .theme:active { scale: .92; }
+  .theme svg { width: 20px; height: 20px; overflow: visible; }
+  .theme circle.o { opacity: .12; }
+  .theme circle { fill: var(--ink); opacity: 0; scale: .55; transform-origin: center; transform-box: fill-box;
+                  transition: opacity .35s ease, scale .45s var(--spring), fill .2s; transition-delay: var(--w, 0s); }
+  .theme:not(.dark) circle.s, .theme.dark circle.m { opacity: 1; scale: 1; }
+  .theme:not(.dark) circle.s.r, .theme.dark circle.m.r { fill: var(--red); }
+  .theme:hover circle { animation: blink 1.1s ease-in-out infinite; animation-delay: var(--w, 0s); }
+  @keyframes blink { 50% { scale: .8; } }
+  @media (max-width: 820px) { nav .hide-sm { display: none; } }
+
+  /* buttons: a fill rises from below on hover */
+  .btn { position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; gap: 10px; height: 50px; padding: 0 24px; border-radius: 99px;
+         border: 1px solid var(--line2); background: transparent; font: 400 13px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; text-decoration: none;
+         transition: color .35s var(--ease), border-color .35s; }
+  .btn::before { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; background: var(--ink); transform: translateY(102%); transition: transform .45s var(--ease); }
+  .btn:hover { color: var(--bg); border-color: var(--ink); }
+  .btn:hover::before { transform: none; }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn.primary::before { background: var(--red); }
+  .btn.primary:hover { color: #fff; border-color: var(--red); }
+  .btn.red, .btn.red:hover { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn svg { width: 16px; height: 16px; flex: none; transition: transform .4s var(--spring); }
+  .btn:hover svg { transform: translateY(2px); }
+  .btn small { font-size: 11px; opacity: .6; }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn:active { scale: .97; }
+
+  /* hero */
+  .hero { position: relative; padding: 96px 0 0; text-align: center; }
+  #field { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;
+           -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 25%, transparent 70%); mask-image: radial-gradient(ellipse at 50% 30%, #000 25%, transparent 70%); }
+  .kicker { display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--line2); border-radius: 99px; padding: 8px 15px; background: var(--bg); text-decoration: none;
+            animation: drop .8s var(--ease) both; transition: border-color .2s; }
+  .kicker:hover { border-color: var(--ink); }
+  .kicker .arr { transition: transform .3s var(--spring); }
+  .kicker:hover .arr { transform: translateX(4px); }
+  @keyframes drop { from { opacity: 0; transform: translateY(-12px); } }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(215,25,33,.6); } 70% { box-shadow: 0 0 0 8px rgba(215,25,33,0); } 100% { box-shadow: 0 0 0 0 rgba(215,25,33,0); } }
+  h1 { font: 900 clamp(44px, 8.4vw, 112px)/.98 var(--dot); text-transform: uppercase; margin: 30px 0 24px; overflow-wrap: anywhere; }
+  h1 .ch { display: inline-block; opacity: 0; filter: blur(6px); transform: translateY(.15em); animation: lightup .55s var(--ease) forwards; transition: color .2s, transform .3s var(--spring); }
+  h1 .ch:hover { color: var(--red); transform: translateY(-.08em); }
+  h1 .ch.red { color: var(--red); }
+  @keyframes lightup { to { opacity: 1; filter: none; transform: none; } }
+  .fade-up { animation: fadeUp .8s var(--ease) both; animation-delay: var(--d, 0s); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } }
+  .lead { max-width: 580px; margin: 0 auto; font-size: clamp(16px, 2vw, 19px); color: var(--mute); }
+  .lead b { color: var(--ink); font-weight: 500; }
+  .ctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 36px 0 18px; }
+  .meta { display: flex; gap: 8px 22px; justify-content: center; flex-wrap: wrap; }
+  .meta span::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--mute); margin-right: 8px; vertical-align: middle; }
+
+  .stage { position: relative; max-width: 1040px; margin: 72px auto 0; perspective: 1400px; }
+  .frame { border-radius: var(--r); border: 1px solid var(--line2); overflow: hidden; }
+  .stage .laptop { aspect-ratio: 16 / 10; transform-origin: 50% 100%; will-change: transform; box-shadow: 0 40px 120px var(--shadow); }
+  .stage .laptop img, .stage .phone img { width: 100%; height: 100%; object-fit: cover; }
+  .stage .phone { position: absolute; right: -10px; bottom: -40px; width: 21%; min-width: 110px; aspect-ratio: 9 / 20; border-radius: 26px; border: 5px solid var(--card2);
+                  box-shadow: 0 30px 80px var(--shadow); will-change: transform; }
+  @media (max-width: 640px) { .stage .phone { right: 6px; bottom: -24px; width: 30%; border-width: 3px; border-radius: 16px; } }
+
+  /* marquee: drifts with your scroll, both ways */
+  .marquee { margin-top: 140px; border-block: 1px solid var(--line); overflow: hidden; padding: 22px 0; display: grid; gap: 10px; }
+  .marquee .row { display: flex; width: max-content; will-change: transform; }
+  .marquee span { font: 900 clamp(36px, 5.5vw, 64px)/1 var(--dot); text-transform: uppercase; white-space: nowrap; padding-right: .6em; }
+  .marquee span i { display: inline-block; width: .22em; height: .22em; border-radius: 50%; background: var(--red); vertical-align: middle; margin: 0 .5em; font-style: normal; }
+  .marquee .row.ghost span { color: transparent; -webkit-text-stroke: 1px var(--line2); }
+
+  /* sections */
+  section { padding: 136px 0 0; }
+  .head { display: grid; grid-template-columns: 180px 1fr; gap: 24px; margin-bottom: 44px; align-items: start; }
+  .head .idx { padding-top: 10px; }
+  .head .idx b { color: var(--red-text); font-weight: 400; }
+  @media (max-width: 760px) { .head { grid-template-columns: 1fr; gap: 10px; } .head .idx { padding: 0; } }
+  h2 { font: 900 clamp(32px, 5vw, 56px)/1.02 var(--dot); text-transform: uppercase; margin: 0 0 14px; }
+  .sub { color: var(--mute); max-width: 560px; margin: 0; }
+
+  .card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 28px; overflow: hidden;
+          transition: border-color .3s, box-shadow .4s var(--ease), background-color .5s; transform-style: preserve-3d; }
+  /* hover: a patch of dots lights up under the pointer */
+  .card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s;
+                 background: radial-gradient(circle, var(--red) 1.1px, transparent 1.6px) 0 0 / 14px 14px;
+                 -webkit-mask-image: radial-gradient(140px circle at var(--mx, 50%) var(--my, 50%), #000, transparent 70%);
+                         mask-image: radial-gradient(140px circle at var(--mx, 50%) var(--my, 50%), #000, transparent 70%); }
+  .card:hover { border-color: var(--line2); box-shadow: 0 24px 60px -20px var(--shadow); }
+  .card:hover::after { opacity: .55; }
+  .card > * { position: relative; z-index: 1; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+  .card p { margin: 0; color: var(--mute); font-size: 15px; }
+  .ico { width: 22px; height: 22px; color: var(--ink); margin-bottom: 40px; transition: transform .5s var(--spring), color .3s; }
+  .ico svg { width: 100%; height: 100%; }
+  .card:hover .ico { transform: scale(1.25) rotate(-8deg); color: var(--red); }
+  .card .tagline { position: absolute; top: 26px; right: 26px; }
+
+  /* features */
+  .feats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .feats .hero-card { grid-column: span 2; grid-row: span 2; display: flex; flex-direction: column; }
+  .feats .wide { grid-column: span 2; }
+  .stat { font: 900 clamp(88px, 13vw, 168px)/.9 var(--dot); margin: auto 0 8px; font-variant-numeric: tabular-nums; }
+  .stat small { font: 400 13px/1 var(--mono); letter-spacing: .08em; color: var(--mute); margin-left: 10px; text-transform: uppercase; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; }
+  .chips span { font: 400 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 8px 11px; border-radius: 99px; border: 1px solid var(--line2); color: var(--mute);
+                transition: background .2s, color .2s, border-color .2s; }
+  .chips span:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  @media (max-width: 960px) { .feats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .feats { grid-template-columns: 1fr; } .feats .hero-card, .feats .wide { grid-column: auto; grid-row: auto; } }
+
+  /* steps + links */
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 860px) { .three { grid-template-columns: 1fr; } }
+  .step .n { font: 900 44px/1 var(--dot); color: var(--mute); margin-bottom: 36px; transition: color .3s, transform .5s var(--spring); transform-origin: 0 100%; }
+  .step:hover .n { color: var(--red); transform: scale(1.15); }
+  .steps-line { position: relative; height: 2px; margin: 0 0 10px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .steps-line i { position: absolute; inset: 0; background: var(--red); transform-origin: 0 50%; transform: scaleX(var(--p, 0)); }
+  .links { margin-top: 10px; }
+  .links .ico { margin-bottom: 28px; }
+  .badge { color: var(--green-text) !important; }
+
+  /* screens */
+  .tabs { display: inline-flex; padding: 4px; border-radius: 99px; border: 1px solid var(--line2); position: relative; margin-bottom: 16px; }
+  .tabs button { position: relative; z-index: 1; background: none; border: 0; padding: 10px 18px; border-radius: 99px; font: 400 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); transition: color .25s; }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { color: var(--bg); }
+  .tabs .puck { position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 99px; background: var(--ink); transition: transform .5s var(--spring), width .5s var(--spring); }
+  .screens { position: relative; aspect-ratio: 16 / 10; }
+  .screens img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.04); transition: opacity .7s ease, transform 1s var(--ease); }
+  .screens img.on { opacity: 1; transform: none; }
+  .timer { height: 2px; background: var(--line); margin-top: 14px; border-radius: 2px; overflow: hidden; }
+  .timer i { display: block; height: 100%; background: var(--red); transform-origin: 0 50%; transform: scaleX(0); }
+  .timer i.run { animation: fill 5s linear forwards; }
+  @keyframes fill { to { transform: scaleX(1); } }
+  .screens-cap { margin-top: 12px; min-height: 1.6em; color: var(--mute); font-size: 14px; }
+
+  /* live demo */
+  .demo { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; }
+  @media (max-width: 860px) { .demo { grid-template-columns: 1fr; } }
+  .desk { min-height: 380px; }
+  .toasts { position: absolute; inset: auto 18px 18px 18px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .toast { width: min(360px, 100%); background: var(--toast); border: 1px solid var(--line2); border-radius: 18px; padding: 13px 15px; backdrop-filter: blur(10px);
+           display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; animation: toastIn .6s var(--spring) both; transition: transform .3s var(--ease); }
+  .toast:hover { transform: translateX(-6px); }
+  .toast.out { animation: toastOut .45s ease forwards; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(20px) scale(.94); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-8px) scale(.96); height: 0; padding-block: 0; margin-top: -8px; } }
+  .toast .tag { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font: 700 10px/1 var(--mono); background: var(--card2); }
+  .toast b { display: block; font-size: 14px; font-weight: 600; }
+  .toast span { display: block; font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast time { font: 400 11px/1 var(--mono); color: var(--mute); align-self: start; }
+  .side { display: grid; gap: 10px; }
+  .big { font: 900 76px/1 var(--dot); margin-top: 18px; }
+  .big small { font: 400 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin-left: 8px; }
+  .bars { display: flex; gap: 5px; align-items: flex-end; height: 64px; margin-top: 22px; }
+  .bars i { flex: 1; border-radius: 3px; background: var(--bar); height: 10%; transition: height .6s var(--spring), background .2s; }
+  .bars i:hover { background: var(--mute); }
+  .bars i:last-child { background: var(--red); }
+
+  /* pairing */
+  .pairing { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; padding: 20px 0 8px; }
+  @media (max-width: 760px) { .pairing { grid-template-columns: 1fr; } .link-line { transform: rotate(90deg); margin: 24px auto; } }
+  .device { text-align: center; }
+  .code { font: 900 clamp(40px, 6vw, 64px)/1 var(--dot); letter-spacing: 6px; margin: 18px 0 12px; min-height: 1em; }
+  .code .d { display: inline-block; animation: lightup .35s var(--ease) both; }
+  .state { font-size: 14px; color: var(--mute); min-height: 1.6em; }
+  .state.ok { color: var(--green-text); }
+  .link-line { width: 96px; height: 2px; background: repeating-linear-gradient(90deg, var(--line2) 0 4px, transparent 4px 10px); position: relative; overflow: hidden; }
+  .link-line::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--red), transparent); transform: translateX(-100%); }
+  .pairing.busy .link-line::after { animation: sweep 1s linear infinite; }
+  .pairing.done .link-line { background: var(--green); }
+  @keyframes sweep { to { transform: translateX(100%); } }
+  .pair-cta { text-align: center; margin-top: 24px; }
+  .list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--card); }
+  .list li { padding: 24px 28px; color: var(--mute); font-size: 15px; border-bottom: 1px solid var(--line); transition: background .3s, padding-left .4s var(--ease); }
+  .list li:hover { background: var(--card2); padding-left: 36px; }
+  .list li:nth-child(odd) { border-right: 1px solid var(--line); }
+  .list li:nth-last-child(-n+2) { border-bottom: 0; }
+  .list li b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 4px; }
+  .list li b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-right: 10px; vertical-align: middle; transform: scale(0); transition: transform .3s var(--spring); }
+  .list li:hover b::before { transform: scale(1); }
+  @media (max-width: 760px) { .list { grid-template-columns: 1fr; } .list li:nth-child(odd) { border-right: 0; } .list li:nth-last-child(2) { border-bottom: 1px solid var(--line); } }
+
+  /* faq */
+  .faq { border-top: 1px solid var(--line); }
+  .faq details { border-bottom: 1px solid var(--line); }
+  .faq summary { list-style: none; cursor: pointer; padding: 24px 4px; font-size: 17px; font-weight: 500; display: flex; align-items: center; gap: 16px; transition: padding-left .4s var(--ease), color .2s; }
+  .faq summary:hover { padding-left: 14px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary .mono { width: 32px; flex: none; transition: color .2s; }
+  .faq summary:hover .mono, .faq details[open] .mono { color: var(--red-text); }
+  .faq summary::after { content: "+"; margin-left: auto; font: 400 20px/1 var(--mono); color: var(--mute); transition: transform .4s var(--spring), color .3s; }
+  .faq details[open] summary::after { transform: rotate(135deg); color: var(--red); }
+  .faq .ans { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s var(--ease); }
+  .faq details[open] .ans { grid-template-rows: 1fr; }
+  .faq .ans > div { overflow: hidden; }
+  .faq .ans p { margin: 0 0 24px 52px; max-width: 680px; color: var(--mute); font-size: 15px; }
+  @media (max-width: 560px) { .faq .ans p { margin-left: 4px; } }
+
+  /* download */
+  .dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 760px) { .dl { grid-template-columns: 1fr; } }
+  .dl h3 { font: 900 30px/1 var(--dot); text-transform: uppercase; margin: 0 0 4px; }
+  ol.steps { margin: 22px 0 28px; padding: 0; list-style: none; counter-reset: s; color: var(--mute); font-size: 15px; }
+  ol.steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; padding: 10px 0; border-top: 1px solid var(--line); }
+  ol.steps li::before { content: "0" counter(s); font: 400 12px/1.9 var(--mono); color: var(--red-text); }
+  ol.steps li b { color: var(--ink); font-weight: 500; }
+  .req { font-size: 13px; color: var(--mute); margin: 18px 0 0; }
+  .req code { font: 12px/1.4 var(--mono); background: var(--card2); border: 1px solid var(--line2); padding: 4px 9px; border-radius: 6px; color: var(--ink); overflow-wrap: anywhere; }
+  .extras { margin-top: 10px; display: grid; grid-template-columns: 1fr 1.4fr; gap: 28px; align-items: start; }
+  @media (max-width: 760px) { .extras { grid-template-columns: 1fr; } }
+  .extras h3 { font-size: 20px; margin: 0; }
+  .extras .opt { color: var(--mute); margin: 10px 0 0; font-size: 15px; }
+  .extras .opt b { color: var(--ink); font-weight: 500; }
+
+  footer { margin-top: 140px; border-top: 1px solid var(--line); padding: 44px 0 40px; color: var(--mute); font-size: 14px; overflow: hidden; }
+  .foot { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 28px; }
+  @media (max-width: 760px) { .foot { grid-template-columns: 1fr 1fr; } }
+  .foot .mono { color: var(--ink); margin: 0 0 14px; }
+  .foot a { display: block; width: fit-content; text-decoration: none; margin: 8px 0; background: linear-gradient(var(--red), var(--red)) 0 100% / 0 1px no-repeat;
+            transition: color .2s, background-size .35s var(--ease); }
+  .foot a:hover { color: var(--ink); background-size: 100% 1px; }
+  .foot a.logo { background: none; }
+  .giant { font: 900 clamp(90px, 22vw, 300px)/.8 var(--dot); text-align: center; margin: 60px 0 0; color: var(--line); letter-spacing: 4px; user-select: none; transition: color .5s; }
+  .giant:hover { color: var(--red); }
+  .legal { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 36px; padding-top: 22px; }
+
+  /* scroll reveal, both ways: things enter from the side you scroll in from, and leave again */
+  .js .rise { opacity: 0; translate: 0 var(--from, 40px); filter: blur(4px);
+              transition: opacity .8s ease, translate .9s var(--ease), filter .8s ease; transition-delay: var(--d, 0s); }
+  .js .rise.in { opacity: 1; translate: none; filter: none; }
+  .js .head h2 { clip-path: inset(0 100% 0 0); transition: clip-path 1s var(--ease) .1s; }
+  .js .head.in h2 { clip-path: inset(0 0 0 0); }
+  .js .zoom { opacity: 0; scale: .94; transition: opacity .9s ease, scale 1s var(--ease); }
+  .js .zoom.in { opacity: 1; scale: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .js .rise, .js .zoom, h1 .ch { opacity: 1 !important; translate: none !important; scale: none !important; filter: none !important; transform: none !important; }
+    .js .head h2 { clip-path: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="progress" aria-hidden="true"></div>
+
+<!-- Theme reveal mask. Sized 0 rather than display:none, which would switch the mask off.
+     Layer 1: white goo shapes (blur + alpha threshold merges them), seen only through a dot pattern.
+     Layer 2: a soft solid core, so the middle of the blob is crisp and readable. -->
+<svg id="reveal-svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="rv-goo" class="rv-box" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12"/>
+      <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"/>
+    </filter>
+    <filter id="rv-soft" class="rv-box" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="18"/></filter>
+    <pattern id="rv-dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle id="rv-dot" cx="4.5" cy="4.5" r="1.6" fill="#fff"/></pattern>
+    <mask id="rv-dotmask" class="rv-box" maskUnits="userSpaceOnUse"><rect class="rv-box" fill="url(#rv-dots)"/></mask>
+    <mask id="reveal-mask" class="rv-box" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
+      <g mask="url(#rv-dotmask)"><g filter="url(#rv-goo)"><circle id="rv-main" r="0" fill="#fff"/><g id="rv-tendrils" stroke="#fff" stroke-linecap="round"></g></g></g>
+      <circle id="rv-core" r="0" fill="#fff" filter="url(#rv-soft)"/>
+    </mask>
+  </defs>
+</svg>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#">NYX<span class="reddot"></span></a><span class="ver">v1.4.1</span>
+    <nav>
+      <a class="hide-sm" href="#features">Features</a>
+      <a class="hide-sm" href="#how">How it works</a>
+      <a class="hide-sm" href="#security">Security</a>
+      <a class="hide-sm" href="#faq">FAQ</a>
+      <a href="#download">Download</a>
+      <a class="js-repo gh hide-sm" href="https://github.com/">GitHub</a>
+      <button class="theme dark" id="theme" type="button" aria-label="Switch to light mode"><svg viewBox="0 0 21 21" aria-hidden="true"></svg></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <canvas id="field" aria-hidden="true"></canvas>
+    <div class="wrap">
+      <a class="kicker mono" href="#features"><span class="pulse"></span>New in 1.4 — 120 fps mirroring over Wi-Fi <span class="arr">→</span></a>
+      <h1 id="headline" aria-label="Your phone, on your laptop">Your phone,<br>on your laptop</h1>
+      <p class="lead fade-up" style="--d:.9s">Notifications, texts, calls, your phone's screen, camera and sound: your <b>Android phone</b>, right on your <b>Windows laptop</b>. Direct over your own Wi-Fi or a USB cable, encrypted. No account, no cloud.</p>
+      <div class="ctas fade-up" style="--d:1.05s">
+        <a class="btn primary js-dl-win magnetic" href="#download">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3zm8.3-1.2L21 2.5v8.7h-9.7zM3 12.8h7.4V20L3 18.9zm8.3 0H21v8.7l-9.7-1.4z"/></svg>
+          Download for Windows</a>
+        <a class="btn js-dl-apk magnetic" href="#download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>
+          Get the Android app</a>
+      </div>
+      <div class="meta mono fade-up" style="--d:1.2s"><span>Windows 10 / 11</span><span>Android 8+</span><span class="js-version">Version 1.4.1</span><span>Free · MIT</span></div>
+
+      <div class="stage fade-up" style="--d:1.3s" id="stage">
+        <div class="frame dots laptop" id="laptop"><img src="img/overview.png" width="1440" height="900" alt="Nyx on Windows: the Overview page with the phone's battery, today's notifications, quick actions and unread messages"></div>
+        <div class="frame dots phone" id="phone"><img src="img/phone.png" width="1080" height="2400" alt="Nyx on Android: link status, setup steps and laptop controls" loading="lazy"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="row" data-speed="1"><span>Notifications<i></i>Texts<i></i>Calls<i></i>Mirroring<i></i>Webcam<i></i>Microphone<i></i>Files<i></i></span><span>Notifications<i></i>Texts<i></i>Calls<i></i>Mirroring<i></i>Webcam<i></i>Microphone<i></i>Files<i></i></span></div>
+    <div class="row ghost" data-speed="-1"><span>No account<i></i>No cloud<i></i>Encrypted<i></i>Open source<i></i>120 fps<i></i>Free<i></i></span><span>No account<i></i>No cloud<i></i>Encrypted<i></i>Open source<i></i>120 fps<i></i>Free<i></i></span></div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>01</b> / Features</div><div><h2>Everything in one window</h2><p class="sub">Keep your phone in your pocket. Nyx brings what matters to the screen you're already looking at, and lets the phone do more for the laptop too.</p></div></div>
+      <div class="feats">
+        <div class="card dots hero-card rise tilt">
+          <span class="mono tagline">Screen</span>
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M11 18h2"/></svg></div>
+          <h3>Your phone's screen, on the laptop</h3>
+          <p>Mirror over USB or Wi-Fi with sound, and click to tap, drag to swipe. Over Wi-Fi it's real H.264 video, as smooth as a cable.</p>
+          <div class="stat"><span data-count="120">120</span><small>fps / Wi-Fi</small></div>
+          <div class="chips"><span>USB or Wi-Fi</span><span>With sound</span><span>Mouse control</span><span>No prompt each time</span></div>
+        </div>
+        <div class="card rise tilt" style="--d:.04s"><span class="mono tagline">Stay in touch</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><h3>Notifications</h3><p>Everything in your phone's shade, cleared the moment it's cleared there. Nothing pops up over your games.</p></div>
+        <div class="card rise tilt" style="--d:.08s"><span class="mono tagline">Stay in touch</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>Texts</h3><p>Read and reply to SMS with a real keyboard, start new conversations, mark everything read.</p></div>
+        <div class="card rise tilt" style="--d:.04s"><span class="mono tagline">Stay in touch</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><h3>Calls</h3><p>Answer, decline and dial from the laptop, and talk through its mic and speakers.</p></div>
+        <div class="card rise tilt" style="--d:.08s"><span class="mono tagline">Screen</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M8 21h8 M12 17v4"/></svg></div><h3>Second screen</h3><p>Extend your desktop onto the phone like a small monitor, with real touch and scrolling.</p></div>
+        <div class="card rise tilt"><span class="mono tagline">Camera &amp; sound</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z M16 10.5l6-3.5v10l-6-3.5"/></svg></div><h3>Webcam</h3><p>Your phone's camera in Meet, Zoom or Teams, ultra-wide included.</p></div>
+        <div class="card rise tilt" style="--d:.04s"><span class="mono tagline">Camera &amp; sound</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z M19 10v1a7 7 0 0 1-14 0v-1 M12 18v4"/></svg></div><h3>Microphone</h3><p>Use the phone as the laptop's mic, over Wi-Fi.</p></div>
+        <div class="card rise tilt" style="--d:.08s"><span class="mono tagline">Camera &amp; sound</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z M15.5 8.5a5 5 0 0 1 0 7 M19 5a10 10 0 0 1 0 14"/></svg></div><h3>Phone sound on the laptop</h3><p>Music and videos move to the laptop's speakers, and the phone goes quiet.</p></div>
+        <div class="card rise tilt" style="--d:.12s"><span class="mono tagline">Control</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0 M12 2v10"/></svg></div><h3>Control the laptop</h3><p>Lock, sleep, wake, restart or shut down from the phone, and see each request go through.</p></div>
+        <div class="card rise tilt"><span class="mono tagline">Control</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3 M7 8l5-5 5 5 M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></div><h3>Send files</h3><p>Drop files onto the window, or share to Nyx from any app on the phone.</p></div>
+        <div class="card rise tilt" style="--d:.04s"><span class="mono tagline">Control</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35"/></svg></div><h3>Find your phone</h3><p>Ring it at full volume from the laptop, even when it's on silent.</p></div>
+        <div class="card wide rise tilt" style="--d:.08s"><span class="mono tagline" style="color:var(--red-text)">Beta</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3c-1 .1-2.2.7-2.9 1.6-.6.7-1.1 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4.7-.9 1.1-2 1-3.1z M12 8c-1 0-2-.7-3.2-.7C6.6 7.3 4.5 9.2 4.5 12.6c0 3.6 2.5 8.4 4.6 8.4 1 0 1.6-.7 2.9-.7s1.8.7 2.9.7c2 0 3.6-3.4 4.3-5.3-2-.9-2.8-2.6-2.8-4.4 0-1.6.8-3 2-3.8-.9-1.3-2.3-2-3.7-2-1.4 0-2.5.8-3.2.8z"/></svg></div><h3>iPhone, too</h3><p>iPhone notifications on the laptop over Bluetooth, no iPhone app needed.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>02</b> / How it works</div><div><h2>Set up once, then forget it</h2><p class="sub">Nyx runs quietly in the tray and links up by itself whenever your phone is around.</p></div></div>
+      <div class="steps-line" id="stepsLine" aria-hidden="true"><i></i></div>
+      <div class="three">
+        <div class="card step rise tilt"><div class="n">01</div><h3>Install both</h3><p>Nyx for Windows on the laptop, the Nyx app on your Android phone. Both are free.</p></div>
+        <div class="card step rise tilt" style="--d:.08s"><div class="n">02</div><h3>Pair once</h3><p>Both screens show the same code. Check it matches, tap Pair, done.</p></div>
+        <div class="card step rise tilt" style="--d:.16s"><div class="n">03</div><h3>That's it</h3><p>From then on they find each other on your Wi-Fi, or through the cable, and link in seconds.</p></div>
+      </div>
+      <div class="three links">
+        <div class="card rise tilt"><span class="mono tagline badge">● Default</span><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0 M1.42 9a16 16 0 0 1 21.16 0 M8.53 16.11a6 6 0 0 1 6.94 0 M12 20h.01"/></svg></div><h3>Wi-Fi</h3><p>Links by itself on the same network. Encrypted, and nothing leaves your Wi-Fi.</p></div>
+        <div class="card rise tilt" style="--d:.08s"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6 M15 2v6 M6 8h12v4a6 6 0 0 1-12 0z M12 18v4"/></svg></div><h3>USB cable</h3><p>Steady and fast, through the cable. Pick it from the link pill on either device.</p></div>
+        <div class="card rise tilt" style="--d:.16s"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg></div><h3>Bluetooth</h3><p>For pairing and when there's no shared Wi-Fi. Also carries call sound.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="look">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>03</b> / Take a look</div><div><h2>Made to feel calm</h2></div></div>
+      <div class="tabs rise" role="tablist" aria-label="Screens">
+        <span class="puck" aria-hidden="true"></span>
+        <button role="tab" aria-selected="true" data-i="0">Overview</button>
+        <button role="tab" aria-selected="false" data-i="1">Texts</button>
+        <button role="tab" aria-selected="false" data-i="2">Calls</button>
+      </div>
+      <div class="frame dots screens zoom" id="screens">
+        <img class="on" src="img/overview.png" width="1440" height="900" alt="Overview: phone status, today's notifications and quick actions" data-cap="Overview. Your phone's battery and signal, today's notifications, and one-tap actions.">
+        <img src="img/messages.png" width="1440" height="900" alt="Texts: conversations and an open thread" loading="lazy" data-cap="Texts. Conversations, unread dots and live incoming messages, with a real keyboard.">
+        <img src="img/calls.png" width="1440" height="900" alt="Calls: dial pad and recent people" loading="lazy" data-cap="Calls. A dial pad, recent people, and call sound on the laptop.">
+      </div>
+      <div class="timer" aria-hidden="true"><i id="timer"></i></div>
+      <p class="screens-cap" id="screens-cap" aria-live="polite">Overview. Your phone's battery and signal, today's notifications, and one-tap actions.</p>
+    </div>
+  </section>
+
+  <section id="live">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>04</b> / Live</div><div><h2>It lands while you work</h2><p class="sub">A notification on your phone shows up on the laptop in a blink. Here's a minute in the life of Nyx.</p></div></div>
+      <div class="demo">
+        <div class="card dots desk rise" aria-hidden="true"><span class="mono">Your laptop</span><div class="toasts" id="toasts"></div></div>
+        <div class="side">
+          <div class="card rise" style="--d:.08s">
+            <div class="mono">Today</div>
+            <div class="big" id="count">0<small>notifications</small></div>
+            <div class="bars" id="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="card rise" style="--d:.16s">
+            <div class="mono">Find phone</div>
+            <p style="margin:12px 0 20px">Ring it at full volume, even on silent.</p>
+            <button class="btn" id="ring" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>Try it</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="security">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>05</b> / Private by design</div><div><h2>Nothing leaves your Wi-Fi</h2><p class="sub">No account, no servers, no tracking. Pairing takes one tap and a glance: both screens show the same code. Try it.</p></div></div>
+      <div class="card dots rise">
+        <div class="pairing" id="pairing">
+          <div class="device"><div class="mono">Laptop</div><div class="code" id="codeA">— — —</div><div class="state" id="stateA">Ready to pair</div></div>
+          <div class="link-line" aria-hidden="true"></div>
+          <div class="device"><div class="mono">Phone</div><div class="code" id="codeB">— — —</div><div class="state" id="stateB">Bridge on</div></div>
+        </div>
+        <div class="pair-cta"><button class="btn primary" id="pairBtn" type="button">Pair</button></div>
+      </div>
+      <ul class="list rise" style="--d:.08s">
+        <li><b>Paired with a code</b>Both screens show the same six digits before anything is shared, so nobody else on the network can slip in.</li>
+        <li><b>Encrypted end to end</b>Every message is AES-256-GCM encrypted, and both sides prove who they are on every connection.</li>
+        <li><b>Keys stay put</b>Pairing keys are sealed by Windows for your account, and kept out of phone backups.</li>
+        <li><b>Open source</b>Every line is on GitHub under the MIT licence. Read it, build it yourself, improve it.</li>
+        <li><b>Every stream sealed</b>Screen, camera, mic and sound each get a fresh key, and every frame is encrypted.</li>
+        <li><b>You stay in charge</b>The phone asks before sharing its screen, and anything that changes Windows settings asks you first.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>06</b> / Questions</div><div><h2>Good to know</h2></div></div>
+      <div class="faq">
+        <details class="rise"><summary><span class="mono">01</span>Is it really free? What's the catch?</summary><div class="ans"><div><p>It's free and open source under the MIT licence. There's no account, no ads and no servers: your phone and laptop talk to each other directly.</p></div></div></details>
+        <details class="rise" style="--d:.04s"><summary><span class="mono">02</span>Does it work with an iPhone?</summary><div class="ans"><div><p>Partly, for now. iPhone notifications work over Bluetooth with no app on the iPhone (beta). Mirroring, the webcam and the other streaming features need the Android app.</p></div></div></details>
+        <details class="rise" style="--d:.08s"><summary><span class="mono">03</span>Why does Spotify's sound stay on the phone when I mirror over Wi-Fi?</summary><div class="ans"><div><p>Spotify plays sound in a way Android won't let other apps capture. Nyx notices and keeps it on the phone. For Spotify on the laptop, pick the laptop in Spotify's Connect, or mirror over USB or "USB quality over Wi-Fi", which carry all sound.</p></div></div></details>
+        <details class="rise" style="--d:.12s"><summary><span class="mono">04</span>Can the phone wake my laptop from sleep?</summary><div class="ans"><div><p>Yes, when Windows lets the laptop's Wi-Fi wake it. Nyx's Settings shows whether it does and turns it on for you (Windows asks first). Some laptops turn Wi-Fi off during long sleeps on battery; plugged in, they stay reachable.</p></div></div></details>
+        <details class="rise" style="--d:.16s"><summary><span class="mono">05</span>Is it safe to let my phone control my laptop?</summary><div class="ans"><div><p>Only your paired phone can, and only after both devices prove they share the pairing secret. Restart and shut down wait 15 seconds so you can cancel, and you can turn phone control off in Settings.</p></div></div></details>
+        <details class="rise" style="--d:.2s"><summary><span class="mono">06</span>Do I need developer options on my phone?</summary><div class="ans"><div><p>No. Everything works without them. USB mirroring with scrcpy and "USB quality over Wi-Fi" need USB debugging, which Nyx explains when you choose them.</p></div></div></details>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <div class="head rise"><div class="idx mono"><b>07</b> / Download</div><div><h2>Set up in two minutes</h2><p class="sub">Install both, put them on the same Wi-Fi, and pair once. After that they find each other by themselves.</p></div></div>
+      <div class="dl">
+        <div class="card rise tilt">
+
+          <h3>Windows</h3>
+          <ol class="steps">
+            <li><span>Download <b>Nyx.exe</b> and double-click it. Nothing to unzip or install.</span></li>
+            <li><span>If Windows warns about an unknown publisher: <b>More info</b> &gt; <b>Run anyway</b>.</span></li>
+            <li><span>Allow Nyx on <b>private</b> networks when asked.</span></li>
+          </ol>
+          <a class="btn primary js-dl-win magnetic" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+            Nyx for Windows <small>.exe</small></a>
+          <p class="req">Windows 10 (May 2020 Update or newer) or Windows 11, 64-bit. Nothing else to install.</p>
+        </div>
+        <div class="card rise tilt" style="--d:.08s">
+
+          <h3>Android</h3>
+          <ol class="steps">
+            <li><span>Download on your phone and open the file. Allow your browser to install apps if asked.</span></li>
+            <li><span>In Nyx, follow <b>Set up</b>, then switch <b>Bridge</b> on.</span></li>
+            <li><span>On the laptop, press <b>Pair</b> and check the codes match.</span></li>
+          </ol>
+          <a class="btn primary js-dl-apk magnetic" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+            Nyx for Android <small>.apk</small></a>
+          <p class="req">Android 8 or newer. On Android 13+, some permissions need Settings &gt; Apps &gt; Nyx &gt; ⋮ &gt; Allow restricted settings. The app walks you through it.</p>
+        </div>
+      </div>
+
+      <div class="card extras rise" id="extras">
+        <div>
+          
+          <h3>scrcpy <span class="mono" style="margin-left:8px">Optional · laptop</span></h3>
+          <p class="opt">You don't need this. Notifications, texts, calls, files and Wi-Fi mirroring all work with just the two apps above.</p>
+          <p class="opt">It adds <b>Mirror over USB</b>, <b>USB quality over Wi-Fi</b> and the one-time <b>Keep payment apps working</b> fix: the free, open-source tool Nyx uses for cable mirroring with every sound and full control.</p>
+        </div>
+        <div>
+          <ol class="steps" style="margin-top:0">
+            <li><span>Download the Windows zip (<b>scrcpy-win64</b>) and unzip it anywhere.</span></li>
+            <li><span>In Nyx, open <b>Mirror</b> and press <b>Browse</b> to point at scrcpy.exe (Nyx finds it by itself if you installed it with winget).</span></li>
+            <li><span>On the phone, turn on <b>USB debugging</b> in Developer options.</span></li>
+          </ol>
+          <a class="btn magnetic" href="https://github.com/Genymobile/scrcpy/releases/latest" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+            Get scrcpy <small>GitHub</small></a>
+          <p class="req">Or in a terminal: <code>winget install Genymobile.scrcpy</code></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div><a class="logo" href="#">NYX<span class="reddot"></span></a><p style="margin:14px 0 0;max-width:280px">Your Android phone on your Windows laptop. No account, no cloud.</p></div>
+      <div><p class="mono">Product</p><a href="#features">Features</a><a href="#how">How it works</a><a href="#download">Download</a><a href="#extras">Optional extras</a></div>
+      <div><p class="mono">Trust</p><a href="#security">Security</a><a class="js-repo" href="https://github.com/">Source code</a><a href="#faq">FAQ</a></div>
+      <div><p class="mono">Project</p><a class="js-repo" href="https://github.com/">GitHub</a><a class="js-repo-issues" href="https://github.com/">Report a problem</a><a class="js-repo-license" href="https://github.com/">MIT licence</a></div>
+    </div>
+    <div class="giant rise" aria-hidden="true">NYX</div>
+    <div class="legal mono"><span>© 2026 The Nyx authors · MIT licence</span><span>Not affiliated with Nothing, Google, Apple or Microsoft.</span></div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var fine = matchMedia("(pointer: fine)").matches;
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  // ---- theme switch: the new theme oozes out of the switch as a gooey, dotted blob.
+  // A copy of the page in the new theme sits on top, masked by the blob; when the blob
+  // covers the screen the real page swaps theme and the copy is removed. Nothing goes blank.
+  (function () {
+    var btn = $("#theme"), meta = $('meta[name="theme-color"]');
+    function setBox(el, x, y, w, h) { el.setAttribute("x", x); el.setAttribute("y", y); el.setAttribute("width", w); el.setAttribute("height", h); }
+    var goo = $("#rv-goo"), soft = $("#rv-soft");
+    var NS = "http://www.w3.org/2000/svg", mainC = $("#rv-main"), core = $("#rv-core"), dot = $("#rv-dot"), tg = $("#rv-tendrils");
+    var TENDRILS = 18, SEGS = 12, DURATION = 1500, busy = false, tendrils = [];
+    for (var i = 0; i < TENDRILS; i++) {
+      var lines = [];
+      for (var j = 0; j < SEGS; j++) { var ln = document.createElementNS(NS, "line"); tg.appendChild(ln); lines.push(ln); }
+      tendrils.push({ lines: lines });
+    }
+    function current() { return root.getAttribute("data-theme") === "light" ? "light" : "dark"; }
+    function show(theme) { btn.classList.toggle("dark", theme === "dark"); btn.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode"); }
+    function sync() { var dark = current() === "dark"; show(current()); meta.setAttribute("content", dark ? "#000000" : "#f1f1ef"); }
+    // 7x7 dot-matrix icons: m = moon, s = sun, r = the one red dot in each
+    var MOON = ["..mmm..", ".mmm...", "mmm....", "mmm....", "mmm...r", ".mmm.mm", "..mmmm."];
+    var SUN  = ["...s...", ".s...s.", "..sss..", "s.srs.s", "..sss..", ".s...s.", "...s..."];
+    (function build() {
+      var svg = $("svg", btn), html = "";
+      for (var y = 0; y < 7; y++) for (var x = 0; x < 7; x++) {
+        var m = MOON[y][x], s = SUN[y][x], cls = [];
+        if (m !== ".") cls.push("m"); if (s !== ".") cls.push("s"); if (m === "r" || s === "r") cls.push("r");
+        if (Math.hypot(x - 3, y - 3) <= 3.2) cls.push("o"); // faint "screen" dots, round not square
+        // dots ripple out from the middle when the icon changes
+        var w = (Math.hypot(x - 3, y - 3) * 0.045).toFixed(3);
+        html += '<circle cx="' + (x * 3 + 1.5) + '" cy="' + (y * 3 + 1.5) + '" r="1.15" class="' + cls.join(" ") + '" style="--w:' + w + 's"/>';
+      }
+      svg.innerHTML = html;
+    })();
+    function apply(next) {
+      root.setAttribute("data-theme", next); sync();
+      try { localStorage.setItem("nyx-theme", next); } catch (e) {}
+    }
+    function resetMask() {
+      mainC.setAttribute("r", 0); core.setAttribute("r", 0); dot.setAttribute("r", 1.6);
+      tendrils.forEach(function (td) { td.lines.forEach(function (l) { l.setAttribute("stroke-width", 0); }); });
+    }
+    sync();
+
+    btn.addEventListener("click", function () {
+      if (busy) return; // ignore clicks while the blob is spreading
+      var next = current() === "dark" ? "light" : "dark";
+      if (calm) { apply(next); return; }
+      busy = true;
+
+      var W = root.clientWidth, H = innerHeight, r = btn.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)) + 80;
+      $$(".rv-box").forEach(function (el) { el.setAttribute("x", 0); el.setAttribute("y", 0); el.setAttribute("width", W); el.setAttribute("height", H); });
+
+      // the header is its own stacking context, so lift the real switch into a fixed holder above the copy
+      var hadFocus = document.activeElement === btn;
+      var slot = document.createElement("span"); slot.style.cssText = "display:inline-block;flex:none;width:" + r.width + "px;height:" + r.height + "px";
+      var lift = document.createElement("div"); lift.className = "switch-lift"; lift.setAttribute("data-theme", next);
+      lift.style.cssText = "left:" + r.left + "px;top:" + r.top + "px";
+      btn.replaceWith(slot); lift.appendChild(btn); document.body.appendChild(lift);
+      if (hadFocus) btn.focus({ preventScroll: true });
+      void btn.offsetWidth; // settle the moved button so the dot morph transitions
+      lift.classList.add("grow");
+      show(next);
+
+      // copy of the page in the new theme, lined up with the current scroll (the slot stands in for the switch)
+      var ghost = document.createElement("div"); ghost.className = "theme-ghost"; ghost.setAttribute("data-theme", next);
+      ghost.setAttribute("aria-hidden", "true"); ghost.inert = true; ghost.style.width = W + "px";
+      var inner = document.createElement("div"); inner.style.transform = "translateY(" + (-scrollY) + "px)";
+      ["header", "main", "footer"].forEach(function (s) { inner.appendChild($(s).cloneNode(true)); });
+      inner.firstChild.style.visibility = "hidden"; // keeps the header's space; the pinned copy below is the one you see
+      ghost.appendChild(inner);
+      var head = $("header").cloneNode(true); head.classList.add("ghost-head"); ghost.appendChild(head); // the sticky header, pinned
+      document.body.appendChild(ghost);
+
+      var shapes = tendrils.map(function (td, k) {
+        return { lines: td.lines, ang: (k / TENDRILS) * Math.PI * 2 + (Math.random() - 0.5) * 0.35,
+                 len: maxR * (0.25 + Math.random() * 0.25), phase: Math.random() * Math.PI * 2 };
+      });
+      mainC.setAttribute("cx", cx); mainC.setAttribute("cy", cy); core.setAttribute("cx", cx); core.setAttribute("cy", cy);
+      var maxLen = Math.max.apply(null, shapes.map(function (s) { return s.len; })) + 20;
+      root.setAttribute("data-revealing", ""); // pauses the hero dots and marquee so the reveal gets the frames
+
+      var t0 = performance.now();
+      requestAnimationFrame(function frame(now) {
+        var t = clamp((now - t0) / DURATION, 0, 1); // the first frame's timestamp can be before t0
+        // ease-in-out: grows gently, speeds through the middle, settles softly at the edges
+        var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        var R = maxR * e;
+        // only filter the area the blob can reach this frame; a full-screen blur every frame is what made it stutter
+        var reach = R + maxLen * (1 - Math.pow(1 - t, 3)) + 60;
+        setBox(goo, cx - reach, cy - reach, reach * 2, reach * 2);
+        setBox(soft, cx - R - 60, cy - R - 60, (R + 60) * 2, (R + 60) * 2);
+        mainC.setAttribute("r", R);
+        core.setAttribute("r", Math.max(0, R - 90));
+        dot.setAttribute("r", 1.6 + 4.8 * Math.pow(t, 3)); // dots swell until they merge into solid
+        var ext = 1 - Math.pow(1 - t, 3); // tendrils shoot out fast, then ease
+        shapes.forEach(function (s) {
+          var L = s.len * ext, ca = Math.cos(s.ang), sa = Math.sin(s.ang);
+          function pt(f) { // a point f of the way along the tendril, wriggling sideways more toward the tip
+            var off = Math.sin(f * Math.PI * 2.2 + s.phase + t * 7) * 16 * f, d = L * f;
+            return [cx + ca * d - sa * off, cy + sa * d + ca * off];
+          }
+          for (var j = 0; j < SEGS; j++) {
+            var a = pt(j / SEGS), b = pt((j + 1) / SEGS), l = s.lines[j];
+            l.setAttribute("x1", a[0]); l.setAttribute("y1", a[1]); l.setAttribute("x2", b[0]); l.setAttribute("y2", b[1]);
+            l.setAttribute("stroke-width", 34 * (1 - j / SEGS) + 5); // taper toward the tip
+          }
+        });
+        if (t > 0.48) lift.classList.add("settle"); // start shrinking the ring before the end
+        if (t < 1) return requestAnimationFrame(frame);
+
+        // the blob covers everything: the copy and the real page now look the same, so swap and clean up
+        root.classList.add("swapping");
+        apply(next);
+        ghost.remove();
+        slot.replaceWith(btn); lift.remove();
+        if (hadFocus) btn.focus({ preventScroll: true });
+        resetMask();
+        void root.offsetWidth;
+        root.removeAttribute("data-revealing");
+        requestAnimationFrame(function () { root.classList.remove("swapping"); busy = false; });
+      });
+    });
+  })();
+
+  // ---- downloads: which GitHub repo is this site for? owner.github.io/repo, or data-repo
+  (function () {
+    var repo = root.getAttribute("data-repo");
+    var host = location.hostname, parts = location.pathname.split("/").filter(Boolean);
+    if (!repo && /\.github\.io$/i.test(host) && parts.length) repo = host.split(".")[0] + "/" + parts[0];
+    if (!repo) return; // opened from disk: the buttons scroll to Download instead
+    var base = "https://github.com/" + repo, latest = base + "/releases/latest/download/";
+    $$(".js-repo").forEach(function (a) { a.href = base; });
+    $$(".js-repo-issues").forEach(function (a) { a.href = base + "/issues"; });
+    $$(".js-repo-license").forEach(function (a) { a.href = base + "/blob/main/LICENSE"; });
+    $$(".js-dl-win").forEach(function (a) { a.href = latest + "Nyx-windows-x64.exe"; });
+    $$(".js-dl-apk").forEach(function (a) { a.href = latest + "Nyx-phone.apk"; });
+    fetch("https://api.github.com/repos/" + repo + "/releases/latest")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.tag_name) $$(".js-version").forEach(function (s) { s.textContent = "Version " + j.tag_name.replace(/^v/, ""); }); })
+      .catch(function () {});
+  })();
+
+  // ---- on an Android phone, its download goes first
+  if (/Android/i.test(navigator.userAgent)) {
+    var ctas = $(".ctas"), win = $(".js-dl-win", ctas), apk = $(".js-dl-apk", ctas);
+    win.classList.remove("primary"); apk.classList.add("primary"); ctas.insertBefore(apk, win);
+  }
+
+  // ---- headline: letters light up one by one, the comma in red
+  (function () {
+    var h = $("#headline"); if (calm) return;
+    var i = 0;
+    h.innerHTML = h.innerHTML.split(/(<br>)/).map(function (part) {
+      if (part === "<br>") return part;
+      return part.split("").map(function (c) {
+        if (c === " ") return " ";
+        return '<span class="ch' + (c === "," ? " red" : "") + '" aria-hidden="true" style="animation-delay:' + (0.15 + 0.035 * i++) + 's">' + c + "</span>";
+      }).join("");
+    }).join("");
+  })();
+
+  // ---- dot field: a quiet dot grid that lights up around the pointer, in the theme's ink
+  (function () {
+    var cv = $("#field"); if (!cv || calm) return;
+    var ctx = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+    var gap = 20, w = 0, h = 0, mx = -999, my = -999, t0 = performance.now(), visible = true;
+    function size() { var r = cv.getBoundingClientRect(); w = r.width; h = r.height; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    size(); addEventListener("resize", size);
+    var hero = $(".hero"), texts = $$("#headline, .lead, .ctas, .meta, .kicker");
+    hero.addEventListener("pointermove", function (e) { var r = cv.getBoundingClientRect(); mx = e.clientX - r.left; my = e.clientY - r.top; });
+    hero.addEventListener("pointerleave", function () { mx = my = -999; });
+    new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }).observe(hero);
+    (function frame(now) {
+      requestAnimationFrame(frame);
+      if (!visible || root.hasAttribute("data-revealing")) return;
+      var t = (now - t0) / 1000, ink = getComputedStyle(root).getPropertyValue("--dot-rgb").trim();
+      ctx.clearRect(0, 0, w, h);
+      // dots fade out softly as they get near text, so it stays readable with no hard edges
+      var c = cv.getBoundingClientRect(), holes = texts.map(function (el) {
+        var rg = document.createRange(); rg.selectNodeContents(el);
+        var r = rg.getBoundingClientRect();
+        return [r.left - c.left, r.top - c.top, r.right - c.left, r.bottom - c.top];
+      });
+      for (var y = gap / 2; y < h; y += gap) for (var x = gap / 2; x < w; x += gap) {
+        var fade = 1;
+        for (var k = 0; k < holes.length; k++) {
+          var b = holes[k], d = Math.hypot(Math.max(b[0] - x, 0, x - b[2]), Math.max(b[1] - y, 0, y - b[3]));
+          fade = Math.min(fade, d / 110);
+        }
+        if (fade <= 0.02) continue;
+        var near = Math.max(0, 1 - Math.hypot(x - mx, y - my) / 150) * fade;
+        var a = (0.06 + 0.06 * (0.5 + 0.5 * Math.sin((x + y) / 110 - t))) * fade + near * 0.7;
+        ctx.fillStyle = near > 0.6 ? "rgba(215,25,33," + a + ")" : "rgba(" + ink + "," + a + ")";
+        ctx.beginPath(); ctx.arc(x, y, 1 + near * 1.2, 0, 6.283); ctx.fill();
+      }
+    })(t0);
+  })();
+
+  // ---- everything driven by scroll, in one frame loop
+  (function () {
+    var bar = $(".progress"), header = $("header"), stage = $("#stage"), laptop = $("#laptop"), phone = $("#phone");
+    var rows = $$(".marquee .row"), line = $("#stepsLine"), navs = $$("nav a[href^='#']");
+    var lastY = scrollY, dir = 1, vel = 0, shift = 0, ticking = false;
+    function onFrame() {
+      ticking = false;
+      var y = scrollY, d = y - lastY; lastY = y;
+      if (d) dir = d > 0 ? 1 : -1;
+      vel = d;
+      var max = Math.max(1, root.scrollHeight - innerHeight);
+      bar.style.transform = "scaleX(" + y / max + ")";
+      header.classList.toggle("scrolled", y > 10);
+      header.classList.toggle("away", dir > 0 && y > 260);
+      if (calm) return;
+      // hero screenshot: starts tilted back, stands up as you scroll down, tilts back as you scroll up
+      var r = stage.getBoundingClientRect(), p = clamp(1 - (r.top - innerHeight * 0.25) / (innerHeight * 0.75), 0, 1);
+      laptop.style.transform = "rotateX(" + ((1 - p) * 16) + "deg) scale(" + (0.92 + 0.08 * p) + ")";
+      phone.style.transform = "translateY(" + ((1 - p) * 90 - p * 20) + "px)";
+      // steps line fills as the section passes
+      var lr = line.getBoundingClientRect();
+      line.style.setProperty("--p", clamp((innerHeight * 0.85 - lr.top) / (innerHeight * 0.5), 0, 1));
+      // nav highlights the section you're in
+      navs.forEach(function (a) { var s = $(a.getAttribute("href")); if (!s) return; var b = s.getBoundingClientRect(); a.classList.toggle("here", b.top < innerHeight * 0.4 && b.bottom > innerHeight * 0.4); });
+    }
+    addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(onFrame); } }, { passive: true });
+    onFrame();
+    // marquee drifts on its own, follows your scroll direction, and speeds up while you scroll
+    if (!calm) (function loop() {
+      requestAnimationFrame(loop);
+      if (root.hasAttribute("data-revealing")) return;
+      shift += dir * 0.6 + vel * 0.35; vel *= 0.9;
+      rows.forEach(function (row) {
+        var half = row.scrollWidth / 2, sp = +row.getAttribute("data-speed");
+        var x = ((shift * sp) % half + half) % half;
+        row.style.transform = "translateX(" + (-x) + "px)";
+      });
+    })();
+  })();
+
+  // ---- reveal, both ways: an element enters from whichever edge it left by, and hides again when it leaves
+  (function () {
+    var els = $$(".rise, .zoom");
+    if (!("IntersectionObserver" in window) || calm) { els.forEach(function (el) { el.classList.add("in"); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); return; }
+        e.target.classList.remove("in");
+        e.target.style.setProperty("--from", e.boundingClientRect.top < 0 ? "-40px" : "40px");
+      });
+    }, { rootMargin: "-6% 0px -6% 0px" });
+    els.forEach(function (el) { io.observe(el); });
+  })();
+
+  // ---- numbers count up each time they come into view
+  (function () {
+    if (calm) return;
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var el = e.target, to = +el.getAttribute("data-count"), t0 = performance.now();
+        (function tick(now) { var k = Math.min(1, (now - t0) / 1400); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); })(t0);
+      });
+    }, { threshold: 0.6 }).observe($("[data-count]"));
+  })();
+
+  // ---- pointer effects: dot spotlight on cards, 3D tilt, magnetic buttons
+  if (fine && !calm) {
+    $$(".card").forEach(function (c) {
+      c.addEventListener("pointermove", function (e) {
+        var r = c.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        c.style.setProperty("--mx", x + "px"); c.style.setProperty("--my", y + "px");
+        if (c.classList.contains("tilt")) c.style.transform = "perspective(900px) rotateX(" + ((0.5 - y / r.height) * 6) + "deg) rotateY(" + ((x / r.width - 0.5) * 6) + "deg)";
+      });
+      c.addEventListener("pointerleave", function () { c.style.transform = ""; });
+    });
+    $$(".magnetic").forEach(function (b) {
+      b.addEventListener("pointermove", function (e) {
+        var r = b.getBoundingClientRect();
+        b.style.transform = "translate(" + ((e.clientX - r.left - r.width / 2) * 0.2) + "px," + ((e.clientY - r.top - r.height / 2) * 0.3) + "px)";
+      });
+      b.addEventListener("pointerleave", function () { b.style.transform = ""; });
+    });
+  }
+
+  // ---- screen tabs, with a progress line for the auto-advance
+  (function () {
+    var tabs = $$(".tabs button"), puck = $(".tabs .puck"), imgs = $$("#screens img"), cap = $("#screens-cap"), bar = $("#timer"), cur = 0, timer;
+    function place() { var b = tabs[cur]; puck.style.width = b.offsetWidth + "px"; puck.style.transform = "translateX(" + (b.offsetLeft - 4) + "px)"; }
+    function restartBar() { bar.classList.remove("run"); void bar.offsetWidth; if (timer) bar.classList.add("run"); }
+    function show(i) {
+      cur = i;
+      tabs.forEach(function (b, j) { b.setAttribute("aria-selected", j === i ? "true" : "false"); });
+      imgs.forEach(function (im, j) { im.classList.toggle("on", j === i); });
+      cap.textContent = imgs[i].getAttribute("data-cap"); place(); restartBar();
+    }
+    tabs.forEach(function (b) { b.addEventListener("click", function () { clearInterval(timer); timer = null; show(+b.getAttribute("data-i")); }); });
+    addEventListener("resize", place); place();
+    if (!calm) { timer = setInterval(function () { show((cur + 1) % tabs.length); }, 5000); restartBar(); }
+  })();
+
+  // ---- live notification demo (made-up sample data)
+  (function () {
+    var box = $("#toasts"), count = $("#count"), bars = $$("#bars i");
+    var samples = [
+      ["WA", "Mum", "Did you eat?"], ["CAL", "Project review", "In 30 minutes, room 204"], ["SMS", "Rohan", "Works. Bring the breadboard."],
+      ["GM", "Your parcel", "Out for delivery today"], ["SPT", "Spotify", "Your Daily Mix is ready"], ["TEL", "Missed call", "Meera · 2 min ago"],
+      ["UPI", "Payment received", "₹450 from Meera, lunch"], ["SL", "#design", "New comment on the dot icons"]
+    ];
+    var n = 0, k = 0, running = false;
+    var levels = bars.map(function () { return 10 + Math.random() * 35; });
+    function paintBars() { bars.forEach(function (b, i) { b.style.height = Math.min(100, levels[i]) + "%"; }); }
+    paintBars();
+    function push() {
+      var s = samples[k++ % samples.length], now = new Date();
+      var el = document.createElement("div"); el.className = "toast";
+      el.innerHTML = '<div class="tag">' + s[0] + '</div><div><b></b><span></span></div><time>' +
+        String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + "</time>";
+      el.querySelector("b").textContent = s[1]; el.querySelector("span").textContent = s[2];
+      box.appendChild(el);
+      var all = box.children;
+      if (all.length > 3) { var old = all[0]; old.classList.add("out"); setTimeout(function () { old.remove(); }, 450); }
+      count.firstChild.nodeValue = String(++n);
+      levels[levels.length - 1] += 12; paintBars();
+      if (n % 3 === 0) { levels.shift(); levels.push(8); paintBars(); }
+    }
+    new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting && !running) { running = true; push(); setTimeout(push, 900); (function loop() { if (!running) return; setTimeout(function () { push(); loop(); }, calm ? 5000 : 2600); })(); }
+      else if (!es[0].isIntersecting) running = false;
+    }, { threshold: 0.3 }).observe($("#live"));
+  })();
+
+  // ---- find phone: the button rings (and buzzes, where the device allows)
+  (function () {
+    var b = $("#ring"), label = $("span", b), on = false, t;
+    b.addEventListener("click", function () {
+      on = !on; label.textContent = on ? "Ringing… tap to stop" : "Try it";
+      b.classList.toggle("red", on);
+      if (on && !calm) {
+        b.animate([{ transform: "rotate(0)" }, { transform: "rotate(-3deg)" }, { transform: "rotate(3deg)" }, { transform: "rotate(0)" }], { duration: 300, iterations: 10 });
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        clearTimeout(t); t = setTimeout(function () { on = false; label.textContent = "Found it"; b.classList.remove("red"); }, 3200);
+      }
+    });
+  })();
+
+  // ---- pairing demo: both devices show the same code, then link
+  (function () {
+    var btn = $("#pairBtn"), box = $("#pairing"), A = $("#codeA"), B = $("#codeB"), sA = $("#stateA"), sB = $("#stateB");
+    function digits(code) { return code.split("").map(function (d, i) { return '<span class="d" style="animation-delay:' + (i * 0.06) + 's">' + d + (i === 2 ? "&nbsp;" : "") + "</span>"; }).join(""); }
+    btn.addEventListener("click", function () {
+      var code = String(Math.floor(Math.random() * 1e6)).padStart(6, "0");
+      box.classList.remove("done"); box.classList.add("busy");
+      sA.classList.remove("ok"); sB.classList.remove("ok");
+      btn.disabled = true; btn.textContent = "Pairing…";
+      A.innerHTML = digits(code); sA.textContent = "Check your phone shows the same code";
+      setTimeout(function () { B.innerHTML = digits(code); sB.textContent = "Allow only if it matches"; }, 500);
+      setTimeout(function () {
+        box.classList.remove("busy"); box.classList.add("done");
+        sA.textContent = "Paired. Encrypted from now on"; sB.textContent = "Linked to your laptop";
+        sA.classList.add("ok"); sB.classList.add("ok");
+        btn.disabled = false; btn.textContent = "Pair again";
+      }, 2300);
+    });
+  })();
+})();
+</script>
+</body>
+</html>

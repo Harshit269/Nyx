@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nyx theme toggles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F2F2; --tile:#FFFFFF; --tile2:#F7F7F7; --line:#E3E3E3; --ink:#0A0A0A; --ink2:#5C5C5C; --ink3:#8E8E8E;
+  --red:#D71921; --dot-off:#DADADA;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+[data-theme="dark"]{
+  --bg:#000000; --tile:#111111; --tile2:#181818; --line:#232323; --ink:#F5F5F5; --ink2:#A3A3A3; --ink3:#6B6B6B;
+  --dot-off:#262626;
+}
+*{box-sizing:border-box;margin:0}
+html{background:var(--bg)}
+body{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:40px 16px 60px}
+::selection{background:var(--red);color:#fff}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-family:Doto,"Segoe UI",sans-serif;font-weight:800;font-size:44px;letter-spacing:.02em;line-height:1}
+.lede{color:var(--ink2);margin:10px 0 34px;max-width:620px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.opt{background:var(--tile);border:1px solid var(--line);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:18px;min-height:330px}
+.tag{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+.tag b{font-family:Doto;font-size:18px;color:var(--ink);letter-spacing:0}
+.opt h2{font-size:19px;font-weight:600}
+.opt p{font-size:13px;color:var(--ink2);line-height:1.5}
+.stage{flex:1;display:grid;place-items:center;background:var(--tile2);border-radius:16px;border:1px solid var(--line);min-height:120px}
+.rec{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);font-weight:700}
+
+/* 1. segmented pill with a sliding thumb */
+.seg{position:relative;display:grid;grid-template-columns:repeat(3,72px);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px}
+.seg button{position:relative;z-index:1;border:0;background:none;font:600 13px/1 inherit;font-family:inherit;color:var(--ink2);height:34px;border-radius:999px;cursor:pointer;transition:color .25s var(--ease)}
+.seg button[aria-pressed="true"]{color:var(--bg)}
+.seg .thumb{position:absolute;top:4px;left:4px;width:72px;height:34px;border-radius:999px;background:var(--ink);transition:transform .45s var(--ease)}
+.seg .thumb:after{content:"";position:absolute;right:10px;top:15px;width:4px;height:4px;border-radius:2px;background:var(--red)}
+
+/* 2. dot-matrix sun/moon icon button */
+.iconbtn{width:72px;height:72px;border-radius:50%;border:1px solid var(--line);background:var(--tile);cursor:pointer;display:grid;place-items:center;transition:transform .2s var(--ease)}
+.iconbtn:active{transform:scale(.94)}
+.dm{display:grid;grid-template-columns:repeat(7,5px);gap:2px}
+.dm i{width:5px;height:5px;border-radius:50%;background:var(--dot-off);transition:background .3s var(--ease),transform .4s var(--ease)}
+.dm i.on{background:var(--ink)}
+.dm i.on.red{background:var(--red)}
+
+/* 3. switch */
+.sw{display:flex;align-items:center;gap:14px;font-weight:600}
+.track{width:64px;height:34px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;border:0;transition:background .35s var(--ease)}
+.track .k{position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:50%;background:var(--tile);box-shadow:0 2px 6px rgba(0,0,0,.18);transition:transform .45s var(--ease),width .2s var(--ease)}
+.track:active .k{width:32px}
+.track[aria-checked="true"]{background:var(--ink)}
+.track[aria-checked="true"] .k{transform:translateX(30px)}
+.track[aria-checked="true"]:active .k{transform:translateX(24px)}
+.track .k:after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--red);opacity:0;transition:opacity .3s}
+.track[aria-checked="true"] .k:after{opacity:1}
+
+button:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+
+/* the theme change itself: a smooth crossfade, old theme fading out over the new */
+::view-transition-old(root),::view-transition-new(root){animation-duration:.38s;animation-timing-function:cubic-bezier(.65,0,.35,1)}
+.note{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:860px){.note{grid-template-columns:1fr}}
+.note div{background:var(--tile);border:1px solid var(--line);border-radius:22px;padding:22px;font-size:13px;color:var(--ink2);line-height:1.6}
+.note b{color:var(--ink);display:block;font-size:14px;margin-bottom:6px}
+.replay{margin-top:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:8px 16px;font:600 13px inherit;font-family:inherit;cursor:pointer}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>THEME TOGGLE</h1>
+  <p class="lede">Three ways to switch Nyx between light and dark. Press each one: the old theme fades out over the new one, the same smooth crossfade the app uses. All three also live in Settings.</p>
+
+  <div class="grid">
+    <section class="opt">
+      <div class="tag"><b>01</b> Sidebar footer <span class="rec" style="margin-left:auto">Recommended</span></div>
+      <h2>Light · Dark · Auto pill</h2>
+      <p>One click, always visible. Auto follows Windows, so most people never touch it. The black thumb slides to your choice.</p>
+      <div class="stage">
+        <div class="seg" role="group" aria-label="Theme">
+          <span class="thumb" id="thumb"></span>
+          <button data-mode="light">Light</button>
+          <button data-mode="dark">Dark</button>
+          <button data-mode="auto">Auto</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="opt">
+      <div class="tag"><b>02</b> Top bar corner</div>
+      <h2>Dot-matrix icon button</h2>
+      <p>A round button in the top bar. The dots redraw from a sun to a moon. Compact, but light and dark only, with no Auto.</p>
+      <div class="stage">
+        <button class="iconbtn" id="iconbtn" aria-label="Switch theme"><span class="dm" id="dm"></span></button>
+      </div>
+    </section>
+
+    <section class="opt">
+      <div class="tag"><b>03</b> Settings row</div>
+      <h2>Dark mode switch</h2>
+      <p>A plain on/off switch, like Windows Settings. Familiar, but hides the Auto choice. The knob stretches as you press it.</p>
+      <div class="stage">
+        <label class="sw">Dark mode <button class="track" id="track" role="switch" aria-checked="false" aria-label="Dark mode"><span class="k"></span></button></label>
+      </div>
+    </section>
+  </div>
+
+  <div class="note">
+    <div><b>How the switch animates</b>The old theme fades out over the new one in about 0.4 seconds, easing in and out, so text stays readable the whole way through. Turn on "reduce motion" in Windows and it swaps instantly instead.<br><button class="replay" id="replay">Replay the animation</button></div>
+    <div><b>What changes in the app</b>Light is white tiles on light grey. Dark is near-black tiles on pure black, so it looks good on OLED screens. Red appears only on live, urgent things: an incoming call, an unread count, the active link. The title bar goes dark too.</div>
+  </div>
+</div>
+
+<script>
+const root = document.documentElement;
+const mq = matchMedia('(prefers-color-scheme: dark)');
+let mode = 'auto';
+try { mode = localStorage.getItem('pb-demo-mode') || 'auto'; } catch (e) {}
+
+const SUN = ["0001000","0100010","0011100","1111111","0011100","0100010","0001000"];
+const MOON = ["0011100","0110000","1100000","1100000","1100000","0110000","0011100"];
+const dm = document.getElementById('dm');
+for (let i = 0; i < 49; i++) dm.appendChild(document.createElement('i'));
+function drawIcon(dark) {
+  const map = dark ? MOON : SUN;
+  [...dm.children].forEach((d, i) => {
+    const on = map[Math.floor(i / 7)][i % 7] === '1';
+    setTimeout(() => { d.classList.toggle('on', on); d.classList.toggle('red', on && !dark && i === 24); }, (i % 7 + Math.floor(i / 7)) * 22);
+  });
+}
+
+function effectiveDark() { return mode === 'dark' || (mode === 'auto' && mq.matches); }
+
+function paint() {
+  const dark = effectiveDark();
+  root.dataset.theme = dark ? 'dark' : 'light';
+  const idx = { light: 0, dark: 1, auto: 2 }[mode];
+  document.getElementById('thumb').style.transform = `translateX(${idx * 72}px)`;
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+  document.getElementById('track').setAttribute('aria-checked', dark);
+  drawIcon(dark);
+}
+
+// crossfade between themes; falls back to an instant swap
+function setMode(next, fromEl) {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  mode = next;
+  try { localStorage.setItem('pb-demo-mode', mode); } catch (e) {}
+  if (!document.startViewTransition || reduce || !fromEl) { paint(); return; }
+  document.startViewTransition(paint);
+}
+
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode, b)));
+document.getElementById('iconbtn').addEventListener('click', e => setMode(effectiveDark() ? 'light' : 'dark', e.currentTarget));
+document.getElementById('track').addEventListener('click', e => setMode(effectiveDark() ? 'light' : 'dark', e.currentTarget));
+document.getElementById('replay').addEventListener('click', e => setMode(effectiveDark() ? 'light' : 'dark', e.currentTarget));
+mq.addEventListener('change', () => { if (mode === 'auto') paint(); });
+paint();
+</script>
+</body>
+</html>

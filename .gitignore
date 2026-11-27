@@ -1,0 +1,43 @@
+# --- build output
+bin/
+obj/
+dist/
+*.user
+.vs/
+
+# --- Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- signing keys and secrets: never commit these
+android/keystore.properties
+*.jks
+*.keystore
+*.pfx
+*.p12
+*.pem
+*.snk
+.env
+.env.*
+
+# --- logs and local tool state
+*.log
+crash.log
+.impeccable/
+TestResults/
+
+# --- OS clutter
+Thumbs.db
+desktop.ini
+.DS_Store
+
+
+# --- local editor/agent settings
+.claude/

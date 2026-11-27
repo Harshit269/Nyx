@@ -1,0 +1,1074 @@
+<Window x:Class="PhoneBridge.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PhoneBridge"
+        Title="Nyx" Width="1240" Height="780" MinWidth="1000" MinHeight="640"
+        Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}"
+        FontFamily="{StaticResource UiFont}" FontSize="14"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal"
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown" AllowDrop="True" DragEnter="Window_DragEnter" DragOver="Window_DragOver" DragLeave="Window_DragLeave" Drop="Window_Drop"
+        Loaded="Window_Loaded" Closing="Window_Closing" Closed="Window_Closed" Activated="Window_Activated">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="76"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ================================ icon rail ================================ -->
+        <Border Grid.Column="0" Background="{DynamicResource Rail}">
+            <DockPanel Margin="0,20,0,18">
+                <local:DotText DockPanel.Dock="Top" Text="NYX" Dot="2.2" HorizontalAlignment="Center" Margin="0,4,0,26"
+                               ToolTip="Nyx"/>
+
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Top">
+                    <Canvas IsHitTestVisible="False">
+                        <Border x:Name="RailPuck" Width="44" Height="44" CornerRadius="22" Background="{DynamicResource Ink}"
+                                Canvas.Left="0" Canvas.Top="4"/>
+                    </Canvas>
+                    <ListBox x:Name="NavList" ItemContainerStyle="{StaticResource RailItem}"
+                             SelectionChanged="NavList_SelectionChanged" AutomationProperties.Name="Sections">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Width="44" Height="44" ToolTip="{Binding Title}" Background="{DynamicResource Clear}">
+                                    <local:LineIcon Data="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border x:Name="Badge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,2,0"
+                                            MinWidth="18" Height="18" CornerRadius="9" Padding="5,0"
+                                            Background="{DynamicResource Red}">
+                                        <TextBlock Text="{Binding CountText}" Foreground="{DynamicResource OnRed}" FontSize="10.5"
+                                                   FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Count}" Value="0">
+                                        <Setter TargetName="Badge" Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- ================================ work area ================================ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- top bar: page name in dot matrix, then the live stat pills -->
+            <DockPanel Grid.Row="0" Margin="28,22,24,14" LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <local:DotText x:Name="PageTitle" Text="OVERVIEW" Dot="3.2"/>
+                    <TextBlock x:Name="PageSub" Style="{StaticResource Meta}" Margin="0,8,0,0"/>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- incoming / live call alert: only present while there is one -->
+                    <Border x:Name="CallBanner" Background="{DynamicResource Tile}" BorderBrush="{DynamicResource Red}"
+                            BorderThickness="1" CornerRadius="22" Padding="8,6,6,6" Margin="0,0,10,0" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="CallDot" Width="8" Height="8" Fill="{DynamicResource Red}" Margin="8,0,10,0"
+                                     VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform><ScaleTransform/></Ellipse.RenderTransform>
+                            </Ellipse>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,14,0" MaxWidth="240">
+                                <TextBlock x:Name="CallStatus" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="CallDetail" Style="{StaticResource Meta}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <Button x:Name="AnswerBtn" Style="{StaticResource BtnInk}" Content="Answer" Height="32" Margin="0,0,6,0" Click="Answer_Click"/>
+                            <Button x:Name="HangupBtn" Style="{StaticResource BtnRed}" Content="Hang up" Height="32" Click="Hangup_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button x:Name="LinkPill" Style="{StaticResource Btn}" Background="{DynamicResource Tile}" Height="40" Tag="20"
+                            Padding="14,0,16,0" Click="LinkPill_Click" AutomationProperties.Name="Phone connection">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Width="10" Height="10" Margin="0,0,10,0">
+                                <Ellipse x:Name="LinkHalo" Fill="{DynamicResource Online}" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                                    <Ellipse.RenderTransform><ScaleTransform/></Ellipse.RenderTransform>
+                                </Ellipse>
+                                <Ellipse x:Name="StatusDot" Fill="{DynamicResource LineStrong}"/>
+                            </Grid>
+                            <TextBlock x:Name="DeviceTitle" Text="No phone" MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="LinkKind" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="8,1,0,0"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- the theme toggle: a dot-matrix sun that redraws itself into a moon -->
+                    <Button x:Name="ThemeBtn" Style="{StaticResource Btn}" Background="{DynamicResource Tile}" Width="40" Height="40"
+                            Tag="20" Padding="0" Margin="0"
+                            Click="ThemeBtn_Click" ToolTip="Switch light or dark" AutomationProperties.Name="Switch light or dark">
+                        <local:DotIcon x:Name="ThemeIcon" Width="18" Height="18"/>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- pages: one is visible at a time, and each slides up into place when opened -->
+            <Grid x:Name="Pages" Grid.Row="1" Margin="22,0,22,22">
+
+                <!-- ============================== overview ============================== -->
+                <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.15*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- phone + connection -->
+                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="Phone" Style="{StaticResource Cap}"/>
+
+                                <!-- the phone card: its wallpaper in a phone outline, then name and live status -->
+                                <DockPanel Margin="0,12,0,0">
+                                    <Border x:Name="PhoneFrame" DockPanel.Dock="Left" Width="62" Height="128" CornerRadius="12"
+                                            BorderBrush="{DynamicResource LineStrong}" BorderThickness="1.5" Padding="2"
+                                            Background="{DynamicResource Tile2}" Margin="0,0,16,0" VerticalAlignment="Top">
+                                        <Border CornerRadius="10" ClipToBounds="True" x:Name="PhoneScreen">
+                                            <Grid>
+                                                <local:DotField x:Name="PhoneDots"/>
+                                                <Image x:Name="PhoneWall" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Grid>
+                                        </Border>
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock x:Name="PhoneName" Text="Not connected" FontFamily="{StaticResource DisplayFont}"
+                                                   FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel x:Name="PhoneIcons" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                                            <local:LineIcon x:Name="IconBt" Data="{StaticResource IconBluetooth}" Width="15" Height="15" Margin="0,0,10,0" ToolTip="Bluetooth"/>
+                                            <local:LineIcon x:Name="IconWifi" Data="{StaticResource IconWifi}" Width="15" Height="15" Margin="0,0,10,0" ToolTip="Wi-Fi"/>
+                                            <StackPanel x:Name="SignalBars" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,12,1" ToolTip="Mobile signal">
+                                                <Rectangle Width="3" Height="4" Margin="0,0,1.5,0" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"/>
+                                                <Rectangle Width="3" Height="7" Margin="0,0,1.5,0" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"/>
+                                                <Rectangle Width="3" Height="10" Margin="0,0,1.5,0" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"/>
+                                                <Rectangle Width="3" Height="13" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"/>
+                                            </StackPanel>
+                                            <Grid Width="22" Height="12" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="Battery">
+                                                <Border BorderBrush="{DynamicResource Ink}" BorderThickness="1.4" CornerRadius="3" Margin="0,0,2,0"/>
+                                                <Border Width="2" Height="5" HorizontalAlignment="Right" Background="{DynamicResource Ink}" CornerRadius="1"/>
+                                                <Border x:Name="BatteryFill" HorizontalAlignment="Left" Margin="2.5,2.5,0,2.5" Width="12" CornerRadius="1.5"
+                                                        Background="{DynamicResource Ink}"/>
+                                            </Grid>
+                                            <TextBlock x:Name="BatteryText" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel x:Name="ConnectedRow" Orientation="Horizontal" Margin="0,12,0,0" Visibility="Collapsed">
+                                            <Border Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                                                    CornerRadius="17" Height="34" Padding="10,0,14,0">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Grid Width="16" Height="16" Margin="0,0,8,0">
+                                                        <Ellipse Fill="{DynamicResource Ink}"/>
+                                                        <Path Data="M4.5 8.2l2.3 2.3 4.7-4.9" Stroke="{DynamicResource OnInk}" StrokeThickness="1.7"
+                                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                                    </Grid>
+                                                    <TextBlock x:Name="ConnectedText" Text="Connected" FontWeight="SemiBold" FontSize="13"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Button Style="{StaticResource BtnIcon}" Width="34" Height="34" Tag="17" Margin="6,0,0,0"
+                                                    Click="RefreshPhone_Click" ToolTip="Refresh from the phone" AutomationProperties.Name="Refresh from the phone">
+                                                <local:LineIcon Data="{StaticResource IconRefresh}" Width="13" Height="13"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <TextBlock x:Name="StatusText" Style="{StaticResource Sub}" Margin="0,12,0,0"
+                                           Text="Pick your phone below, then connect."/>
+                                <Border x:Name="UpdateBanner" Visibility="Collapsed" Margin="0,10,0,0" Padding="12,8"
+                                        CornerRadius="10" Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Red}" BorderThickness="1">
+                                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                                               Text="Your phone has an older Nyx. Install the latest Nyx-phone.apk on it for notifications, Find phone and clearer error messages."/>
+                                </Border>
+                                <TextBlock x:Name="WallHint" Style="{StaticResource Sub}" Margin="0,6,0,0" Visibility="Collapsed"/>
+
+
+                                <!-- phones heard on Wi-Fi that aren't paired yet: pair with one click, no Bluetooth -->
+                                <StackPanel x:Name="NearbyPanel" Margin="0,14,0,0" Visibility="Collapsed">
+                                    <TextBlock Text="On your Wi-Fi" Style="{StaticResource Cap}"/>
+                                    <ItemsControl x:Name="NearbyList" Margin="0,6,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                                                        CornerRadius="14" Padding="12,8" Margin="0,0,0,6">
+                                                    <DockPanel>
+                                                        <Button DockPanel.Dock="Right" Content="Pair" Style="{StaticResource BtnInk}" Height="32" Tag="16"
+                                                                Click="PairNearby_Click"/>
+                                                        <local:LineIcon Data="{StaticResource IconWifi}" Width="15" Height="15" Margin="0,0,10,0"/>
+                                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- the code check while pairing over Wi-Fi -->
+                                <Border x:Name="PairPanel" Margin="0,14,0,0" Padding="16,14" CornerRadius="16" Visibility="Collapsed"
+                                        Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Ink}" BorderThickness="1.5">
+                                    <StackPanel>
+                                        <TextBlock x:Name="PairTitle" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                        <local:DotText x:Name="PairCode" Dot="5" Margin="0,12,0,10" HorizontalAlignment="Left"/>
+                                        <TextBlock x:Name="PairHint" Style="{StaticResource Sub}"/>
+                                        <StackPanel x:Name="PairButtons" Orientation="Horizontal" Margin="0,12,0,0">
+                                            <Button Content="Codes match" Style="{StaticResource BtnInk}" Margin="0,0,8,0" Click="PairConfirm_Click"/>
+                                            <Button Content="Cancel" Click="PairCancel_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel x:Name="DevicePanel" Margin="0,14,0,0">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource BtnIcon}" Width="30" Height="30" Click="Refresh_Click"
+                                                ToolTip="Look for paired phones again" AutomationProperties.Name="Refresh paired phones">
+                                            <local:LineIcon Data="{StaticResource IconRefresh}" Width="13" Height="13"/>
+                                        </Button>
+                                        <TextBlock Text="Paired phones" Style="{StaticResource Cap}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <ListBox x:Name="DeviceList" MaxHeight="132" Margin="-6,6,-6,0" ItemContainerStyle="{StaticResource RowItem}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <local:LineIcon Data="{StaticResource IconSmartphone}" Width="15" Height="15" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <TextBlock x:Name="DeviceEmpty" Style="{StaticResource Sub}" Margin="0,6,0,0" Visibility="Collapsed"
+                                               Text="No paired phones yet. Pair yours in Windows Bluetooth settings, then refresh."/>
+                                </StackPanel>
+
+                                <Button x:Name="ConnectBtn" Content="Connect" Style="{StaticResource BtnInk}"
+                                        Click="Connect_Click" Margin="0,16,0,0" Height="40" Tag="20"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- today: one big number and a dot chart of the last twelve hours -->
+                        <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <TextBlock x:Name="TodayCap" DockPanel.Dock="Top" Text="Today" Style="{StaticResource Cap}"/>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,16,0,0">
+                                    <local:DotText x:Name="TodayCount" Text="0" Dot="7" ShowOff="False"/>
+                                    <TextBlock x:Name="TodayUnit" Text="notifications" Style="{StaticResource Sub}" VerticalAlignment="Bottom" Margin="12,0,0,2"/>
+                                </StackPanel>
+                                <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="now" Style="{StaticResource Meta}"/>
+                                    <TextBlock Text="12 h ago" Style="{StaticResource Meta}"/>
+                                </DockPanel>
+                                <local:DotBars x:Name="ActivityBars" Rows="9" Height="96" Margin="0,22,0,0" VerticalAlignment="Bottom"
+                                               ToolTip="Notifications per hour, last 12 hours"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- quick actions -->
+                        <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="Quick actions" Style="{StaticResource Cap}"/>
+                                <UniformGrid Columns="2" Margin="-4,12,-4,0">
+                                    <Button Style="{StaticResource Btn}" Height="78" Tag="16" Margin="4" Click="QuickText_Click">
+                                        <StackPanel>
+                                            <local:LineIcon Data="{StaticResource IconMessage}" Width="18" Height="18"/>
+                                            <TextBlock Text="New text" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource Btn}" Height="78" Tag="16" Margin="4" Click="QuickCall_Click">
+                                        <StackPanel>
+                                            <local:LineIcon Data="{StaticResource IconPhone}" Width="18" Height="18"/>
+                                            <TextBlock Text="Call" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource Btn}" Height="78" Tag="16" Margin="4" Click="SendFile_Click"
+                                            ToolTip="Send files to your phone (or drop them anywhere on this window)">
+                                        <StackPanel>
+                                            <local:LineIcon Data="{StaticResource IconUpload}" Width="18" Height="18"/>
+                                            <TextBlock Text="Send file" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource Btn}" Height="78" Tag="16" Margin="4" Click="FindPhone_Click"
+                                            ToolTip="Rings your phone loudly, even on silent">
+                                        <StackPanel>
+                                            <local:LineIcon Data="{StaticResource IconBell}" Width="18" Height="18"/>
+                                            <TextBlock x:Name="FindPhoneText" Text="Find phone" Margin="0,8,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- the phone's notifications (chat apps and everything else) -->
+                        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource BtnQuiet}" Content="See all" Height="28" Click="GoNotifs_Click"/>
+                                    <TextBlock Text="Notifications" Style="{StaticResource Cap}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <Grid Margin="0,8,0,0">
+                                    <ListBox x:Name="UnreadList" Margin="-8,0" ItemContainerStyle="{StaticResource RowItem}"
+                                             SelectionChanged="UnreadList_SelectionChanged" AutomationProperties.Name="Latest notifications">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Left" Width="38" Height="38" CornerRadius="19" Background="{DynamicResource Tile2}" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding Initial}" FontWeight="SemiBold" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                        <TextBlock Text="{Binding TimeText}" Style="{StaticResource Meta}" HorizontalAlignment="Right"/>
+                                                        <!-- which app it came from -->
+                                                        <Border HorizontalAlignment="Right" Margin="0,4,0,0" MinWidth="18" Height="18" CornerRadius="9" Padding="7,0" Background="{DynamicResource Tile2}">
+                                                            <TextBlock Text="{Binding Badge}" Foreground="{DynamicResource Ink2}" FontSize="10.5" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Display}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Last}" FontSize="13" Foreground="{DynamicResource Ink2}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <StackPanel x:Name="UnreadEmpty" Margin="0,10,0,6">
+                                        <TextBlock Text="Quiet so far" FontWeight="SemiBold"/>
+                                        <TextBlock Style="{StaticResource Sub}" Margin="0,2,0,0" Text="WhatsApp, Instagram and your other apps' notifications land here while they're on your phone."/>
+                                    </StackPanel>
+                                </Grid>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- unread texts -->
+                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource BtnQuiet}" Content="All texts" Height="28" Click="GoMessages_Click"/>
+                                    <Button x:Name="MarkAllReadTile" DockPanel.Dock="Right" Style="{StaticResource BtnQuiet}" Content="Mark all read" Height="28" Click="MarkAllRead_Click" Visibility="Collapsed"/>
+                                    <TextBlock Text="Texts" Style="{StaticResource Cap}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <Grid Margin="0,8,0,0">
+                                    <ListBox x:Name="RecentList" Margin="-8,0" ItemContainerStyle="{StaticResource RowItem}"
+                                             SelectionChanged="RecentList_SelectionChanged" AutomationProperties.Name="Unread texts">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Left" Width="32" Height="32" CornerRadius="16" Background="{DynamicResource Tile2}" Margin="0,0,10,0">
+                                                        <TextBlock Text="{Binding Initial}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TimeText}" Style="{StaticResource Meta}" HorizontalAlignment="Right"/>
+                                                        <Grid HorizontalAlignment="Right" Margin="0,3,0,0">
+                                                            <Border x:Name="Count" MinWidth="18" Height="18" CornerRadius="9" Padding="5,0" Background="{DynamicResource Red}">
+                                                                <TextBlock Text="{Binding Badge}" Foreground="{DynamicResource OnRed}" FontSize="10.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            </Border>
+                                                            <!-- on hover: mark just this one read -->
+                                                            <Button x:Name="ReadBtn" Style="{StaticResource BtnQuiet}" Width="26" Height="20" Padding="0" Visibility="Collapsed"
+                                                                    Click="MarkOneRead_Click" ToolTip="Mark as read" AutomationProperties.Name="Mark as read">
+                                                                <local:LineIcon Data="{StaticResource IconCheckAll}" Width="13" Height="13"/>
+                                                            </Button>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Display}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Last}" Style="{StaticResource Meta}" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                        <Setter TargetName="ReadBtn" Property="Visibility" Value="Visible"/>
+                                                        <Setter TargetName="Count" Property="Visibility" Value="Hidden"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <StackPanel x:Name="RecentEmpty" Margin="0,10,0,6">
+                                        <TextBlock Text="All caught up" FontWeight="SemiBold"/>
+                                        <TextBlock Style="{StaticResource Sub}" Margin="0,2,0,0" Text="Unread texts from your phone land here until you open them."/>
+                                    </StackPanel>
+                                </Grid>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- ============================ notifications ============================ -->
+                <Border x:Name="PageNotifs" Style="{StaticResource TileBox}" Margin="6" Padding="0" Visibility="Collapsed">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="22,18,16,10">
+                            <Button x:Name="ClearNotifsBtn" DockPanel.Dock="Right" Content="Clear all" ToolTip="Clears them on your phone too" Style="{StaticResource BtnQuiet}" Click="ClearNotifs_Click"/>
+                            <Button DockPanel.Dock="Right" Content="Choose apps" ToolTip="Switch apps' notifications on or off for this laptop" Style="{StaticResource BtnQuiet}" Click="ChooseNotifApps_Click"/>
+                            <Button x:Name="MarkAllNotifsBtn" DockPanel.Dock="Right" Content="Mark all read" Visibility="Collapsed"
+                                    ToolTip="Marks messages read in their apps on your phone" Style="{StaticResource BtnQuiet}" Click="MarkAllNotifsRead_Click"/>
+                            <StackPanel>
+                                <TextBlock Text="From your phone" Style="{StaticResource Cap}"/>
+                                <TextBlock x:Name="NotifSummary" Style="{StaticResource H2}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <Grid>
+                            <ListBox x:Name="NotifList" Padding="16,0,16,16" AutomationProperties.Name="Notifications"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <!-- cards, two to a row: the page is wide and a single column reads as a log -->
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="2" VerticalAlignment="Top"/>
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="6"/>
+                                        <Setter Property="Focusable" Value="False"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="Card" CornerRadius="16" Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Line}"
+                                                BorderThickness="1" Padding="16,14,10,16">
+                                            <DockPanel>
+                                                <!-- source line: app badge, APP NAME · time, dismiss on hover -->
+                                                <DockPanel DockPanel.Dock="Top">
+                                                    <Border DockPanel.Dock="Left" MinWidth="32" Height="32" CornerRadius="16" Padding="5,0" Background="{DynamicResource Ink}" Margin="0,0,10,0">
+                                                        <TextBlock Text="{Binding Code}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource OnInk}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <Button x:Name="Dismiss" DockPanel.Dock="Right" Style="{StaticResource BtnQuiet}" Width="30" Height="30" Padding="0"
+                                                            Opacity="0" Click="DismissNotif_Click" ToolTip="Dismiss on the phone too" AutomationProperties.Name="Dismiss notification">
+                                                        <local:LineIcon Data="{StaticResource IconClose}" Width="12" Height="12"/>
+                                                    </Button>
+                                                    <!-- the app's own "Mark as read", pressed on the phone (only when the app offers it) -->
+                                                    <Button x:Name="MarkRead" DockPanel.Dock="Right" Style="{StaticResource BtnQuiet}" Width="30" Height="30" Padding="0"
+                                                            Opacity="0" Visibility="Collapsed" Click="MarkNotifRead_Click" ToolTip="Mark as read" AutomationProperties.Name="Mark as read">
+                                                        <local:LineIcon Data="{StaticResource IconCheckAll}" Width="14" Height="14"/>
+                                                    </Button>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock x:Name="AppName" Text="{Binding App}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource Ink2}"
+                                                                   TextTrimming="CharacterEllipsis" MaxWidth="260"/>
+                                                        <Ellipse Width="3" Height="3" Fill="{DynamicResource Ink3}" Margin="8,1,8,0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding TimeText}" FontSize="11.5" Foreground="{DynamicResource Ink3}"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <StackPanel Margin="42,8,12,0">
+                                                    <TextBlock x:Name="Head" Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock x:Name="Body" Text="{Binding Text}" Style="{StaticResource Sub}" TextWrapping="Wrap" MaxHeight="63"
+                                                               TextTrimming="CharacterEllipsis" LineHeight="21" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Text}" Value="">
+                                                <Setter TargetName="Body" Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Title}" Value="">
+                                                <Setter TargetName="Head" Property="Visibility" Value="Collapsed"/>
+                                                <Setter TargetName="Body" Property="Margin" Value="0"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding CanRead}" Value="True">
+                                                <Setter TargetName="MarkRead" Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter TargetName="Dismiss" Property="Opacity" Value="1"/>
+                                                <Setter TargetName="MarkRead" Property="Opacity" Value="1"/>
+                                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Ink3}"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel x:Name="NotifEmpty" Margin="22,10,22,0" MaxWidth="440" HorizontalAlignment="Left">
+                                <TextBlock x:Name="NotifEmptyTitle" Text="Nothing here yet" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="NotifEmptyBody" Style="{StaticResource Sub}" Margin="0,4,0,0"
+                                           Text="Notifications show up here the moment they land on your phone. Dismiss one here and it clears on the phone too."/>
+                            </StackPanel>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- ============================== messages ============================== -->
+                <Grid x:Name="PageMessages" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="340"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource TileBox}" Margin="6" Padding="0">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="20,16,12,10">
+                                <Button x:Name="NewMessageBtn" DockPanel.Dock="Right" Style="{StaticResource BtnInk}" Width="34" Height="34" Padding="0" Margin="6,0,0,0"
+                                        Click="NewMessage_Click" ToolTip="New text message" AutomationProperties.Name="New message">
+                                    <local:LineIcon Data="{StaticResource IconPlus}" Width="15" Height="15"/>
+                                </Button>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource BtnIcon}" Width="34" Height="34" Padding="0" Margin="6,0,0,0"
+                                        Click="SendFile_Click" ToolTip="Send files to your phone" AutomationProperties.Name="Send files to your phone">
+                                    <local:LineIcon Data="{StaticResource IconUpload}" Width="15" Height="15"/>
+                                </Button>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource BtnIcon}" Width="34" Height="34" Click="ReloadSms_Click"
+                                        ToolTip="Load messages from the phone again" AutomationProperties.Name="Reload messages">
+                                    <local:LineIcon Data="{StaticResource IconRefresh}" Width="13" Height="13"/>
+                                </Button>
+                                <Button x:Name="MarkAllReadBtn" DockPanel.Dock="Right" Style="{StaticResource BtnIcon}" Width="34" Height="34" Padding="0" Margin="0,0,6,0"
+                                        Click="MarkAllRead_Click" ToolTip="Mark all as read" AutomationProperties.Name="Mark all as read">
+                                    <local:LineIcon Data="{StaticResource IconCheckAll}" Width="15" Height="15"/>
+                                </Button>
+                                <TextBlock Text="Texts" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <!-- WhatsApp | Texts: hidden while WhatsApp is switched off (WhatsAppEnabled) -->
+                                <Border Visibility="Collapsed" Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Line}" BorderThickness="1"
+                                        CornerRadius="18" Padding="3" HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton x:Name="ModeWhatsApp" Style="{StaticResource Pill}" Content="WhatsApp" GroupName="MsgSource"
+                                                     Checked="MsgSource_Checked"/>
+                                        <RadioButton x:Name="ModeTexts" Style="{StaticResource Pill}" Content="Texts" GroupName="MsgSource"
+                                                     IsChecked="True" Checked="MsgSource_Checked"/>
+                                    </StackPanel>
+                                </Border>
+                            </DockPanel>
+                            <Grid>
+                                <ListBox x:Name="ConvList" Padding="8,0,8,10" ItemContainerStyle="{StaticResource RowItem}"
+                                         SelectionChanged="ConvList_SelectionChanged" AutomationProperties.Name="Conversations">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="20" Background="{DynamicResource Tile2}"
+                                                        BorderBrush="{DynamicResource Line}" BorderThickness="1" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Initial}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <StackPanel DockPanel.Dock="Right" Margin="8,2,0,0">
+                                                    <TextBlock Text="{Binding TimeText}" Style="{StaticResource Meta}" HorizontalAlignment="Right"/>
+                                                    <Grid HorizontalAlignment="Right" Margin="0,4,0,0">
+                                                        <Ellipse x:Name="UnreadDot" Width="8" Height="8" Fill="{DynamicResource Red}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                        <!-- on hover over an unread conversation: mark just this one read -->
+                                                        <Button x:Name="ReadBtn" Style="{StaticResource BtnQuiet}" Width="26" Height="22" Padding="0" Visibility="Collapsed"
+                                                                Click="MarkOneRead_Click" ToolTip="Mark as read" AutomationProperties.Name="Mark as read">
+                                                            <local:LineIcon Data="{StaticResource IconCheckAll}" Width="13" Height="13"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Display}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding Last}" FontSize="13" Foreground="{DynamicResource Ink2}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Unread}" Value="0">
+                                                    <Setter TargetName="UnreadDot" Property="Visibility" Value="Hidden"/>
+                                                </DataTrigger>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True"/>
+                                                        <Condition Binding="{Binding HasUnread}" Value="True"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter TargetName="ReadBtn" Property="Visibility" Value="Visible"/>
+                                                    <Setter TargetName="UnreadDot" Property="Visibility" Value="Hidden"/>
+                                                </MultiDataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="ConvEmpty" Style="{StaticResource Sub}" Margin="20,4,20,0"
+                                           Text="Your text conversations load here once the phone is connected."/>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource TileBox}" Margin="6" Padding="0">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="24,18,24,12">
+                                <TextBlock x:Name="ThreadTitle" Style="{StaticResource H2}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="ThreadSub" Style="{StaticResource Meta}" Margin="0,2,0,0"/>
+                                <DockPanel x:Name="ToRow" Margin="0,10,0,0" Visibility="Collapsed">
+                                    <TextBlock Text="To" Style="{StaticResource Cap}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="ToBox" Tag="Phone number" AutomationProperties.Name="Recipient number"/>
+                                </DockPanel>
+                            </StackPanel>
+                            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Line}"/>
+
+                            <DockPanel x:Name="Composer" DockPanel.Dock="Bottom" Margin="20,10,20,18">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource BtnInk}" Width="40" Height="40" Tag="20"
+                                        Padding="0" Margin="8,0,0,0" Click="SendSms_Click" ToolTip="Send (Enter)"
+                                        AutomationProperties.Name="Send message">
+                                    <local:LineIcon Data="{StaticResource IconSend}" Width="15" Height="15"/>
+                                </Button>
+                                <TextBox x:Name="MsgBox" Tag="Text message" MinHeight="40" KeyDown="MsgBox_KeyDown"
+                                         AutomationProperties.Name="Message"/>
+                            </DockPanel>
+
+                            <Grid>
+                                <ListBox x:Name="ThreadList" Padding="20,12,14,6" ItemContainerStyle="{StaticResource BareItem}"
+                                         AutomationProperties.Name="Messages in this conversation">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="Bubble" Background="{DynamicResource Tile2}" HorizontalAlignment="Left"
+                                                    CornerRadius="18" Padding="14,9,14,8" Margin="0,3" MaxWidth="460">
+                                                <StackPanel>
+                                                    <TextBlock x:Name="Body" Text="{Binding Body}" TextWrapping="Wrap" LineHeight="20"/>
+                                                    <TextBlock x:Name="Meta" Text="{Binding TimeText}" FontSize="11.5" Foreground="{DynamicResource Ink3}"
+                                                               HorizontalAlignment="Right" Margin="16,3,0,0" Typography.NumeralAlignment="Tabular"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Inbox}" Value="False">
+                                                    <Setter TargetName="Bubble" Property="Background" Value="{DynamicResource Ink}"/>
+                                                    <Setter TargetName="Bubble" Property="HorizontalAlignment" Value="Right"/>
+                                                    <Setter TargetName="Body" Property="Foreground" Value="{DynamicResource OnInk}"/>
+                                                    <Setter TargetName="Meta" Property="Foreground" Value="{DynamicResource LineStrong}"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <StackPanel x:Name="ThreadEmpty" Margin="24,20,24,0" MaxWidth="400" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                    <TextBlock Text="No conversation open" FontWeight="SemiBold"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0"
+                                               Text="Choose a conversation on the left, or press the plus button to text a new number."/>
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ================================ calls ================================ -->
+                <Grid x:Name="PageCalls" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="360"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource TileBox}" Margin="6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="Dial" Style="{StaticResource Cap}"/>
+                                <TextBox x:Name="DialBox" Style="{StaticResource DialField}" Tag="Type or tap a number"
+                                         Margin="0,10,0,8" KeyDown="DialBox_KeyDown" AutomationProperties.Name="Number to call"/>
+                                <UniformGrid Columns="3" Margin="-5,0">
+                                    <Button Style="{StaticResource BtnKey}" Content="1" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="2" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="3" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="4" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="5" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="6" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="7" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="8" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="9" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="*" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="0" Click="Key_Click"/>
+                                    <Button Style="{StaticResource BtnKey}" Content="#" Click="Key_Click"/>
+                                </UniformGrid>
+                                <DockPanel Margin="0,8,0,0">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource Btn}" Width="54" Height="48" Tag="24" Padding="0"
+                                            Margin="8,0,0,0" Click="Backspace_Click" ToolTip="Delete last digit" AutomationProperties.Name="Delete last digit">
+                                        <local:LineIcon Data="{StaticResource IconBackspace}"/>
+                                    </Button>
+                                    <Button Style="{StaticResource BtnInk}" Height="48" Tag="24" Click="Dial_Click" AutomationProperties.Name="Call this number">
+                                        <StackPanel Orientation="Horizontal">
+                                            <local:LineIcon Data="{StaticResource IconPhone}" Width="15" Height="15" Margin="0,0,9,0"/>
+                                            <TextBlock Text="Call" FontSize="14"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DockPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Grid.Row="0" Style="{StaticResource TileBox}" Margin="6" Padding="0">
+                            <DockPanel>
+                                <TextBlock x:Name="ContactsTitle" DockPanel.Dock="Top" Text="Recent" Style="{StaticResource H2}" Margin="20,18,20,10"/>
+                                <Grid DockPanel.Dock="Top" Margin="20,0,16,8">
+                                    <TextBox x:Name="ContactSearch" Tag="Search name or number" Padding="36,0,12,0"
+                                             TextChanged="ContactSearch_TextChanged" AutomationProperties.Name="Search contacts"/>
+                                    <local:LineIcon Data="{StaticResource IconSearch}" Width="14" Height="14" Margin="14,0,0,0"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Ink3}"/>
+                                </Grid>
+                                <Grid>
+                                    <ListBox x:Name="ContactList" Padding="10,0,10,10" ItemContainerStyle="{StaticResource RowItem}"
+                                             SelectionChanged="ContactList_SelectionChanged"
+                                             MouseDoubleClick="ContactList_MouseDoubleClick" AutomationProperties.Name="Contacts">
+                                        <ListBox.ItemsPanel>
+                                            <ItemsPanelTemplate><UniformGrid Columns="2" VerticalAlignment="Top"/></ItemsPanelTemplate>
+                                        </ListBox.ItemsPanel>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Left" Width="34" Height="34" CornerRadius="17" Background="{DynamicResource Tile2}" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding Initial}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Sub}" Style="{StaticResource Meta}" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                    <TextBlock x:Name="ContactEmpty" Style="{StaticResource Sub}" Margin="20,4,20,0"
+                                               Text="Contacts from your phone appear here. Click one to fill the number, double-click to call."/>
+                                </Grid>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Use this laptop" VerticalAlignment="Center" Margin="16,0,0,0" Click="HandsFree_Click"/>
+                                <StackPanel>
+                                    <TextBlock Text="Call audio" Style="{StaticResource Cap}"/>
+                                    <TextBlock x:Name="AudioStatus" Style="{StaticResource Sub}" Margin="0,4,0,0"
+                                               Text="On the phone for now. You can answer and dial from here either way."/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ============================ screen mirror ============================ -->
+                <ScrollViewer x:Name="PageMirror" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- the phone's sound through the laptop's speakers -->
+                        <Border Grid.Row="6" Grid.ColumnSpan="2" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <Button x:Name="AudioShareBtn" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="20,0,0,0"
+                                        Content="Play phone audio" Style="{StaticResource BtnInk}" Click="AudioShare_Click"/>
+                                <StackPanel>
+                                    <TextBlock Text="Phone audio" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                               Text="Hear your phone's music, videos and games through this laptop's speakers or headphones, over Wi-Fi. Goes well with Mirror over Wi-Fi. Encrypted."/>
+                                    <TextBlock x:Name="AudioShareState" Margin="0,10,0,0" FontSize="13" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- the phone as a microphone for calls -->
+                        <Border Grid.Row="5" Grid.ColumnSpan="2" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="20,0,0,0">
+                                    <Button x:Name="MicBtn" Content="Use phone mic" Style="{StaticResource BtnInk}" Click="Mic_Click"/>
+                                    <Button x:Name="GetCableBtn" Content="Get VB-Cable" Margin="0,8,0,0" Click="GetCable_Click" Visibility="Collapsed"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Phone as microphone" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                               Text="Talk into your phone in Meet, Zoom, Teams or Discord, with its echo and noise cancelling. Keeps going while you use the phone; the phone shows a notification with Stop. Encrypted, over Wi-Fi."/>
+                                    <TextBlock x:Name="MicState" Margin="0,10,0,0" FontSize="13" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- the phone as a webcam for calls -->
+                        <Border Grid.Row="4" Grid.ColumnSpan="2" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="20,0,0,0">
+                                    <Button x:Name="WebcamBtn" Content="Use phone camera" Style="{StaticResource BtnInk}" Click="Webcam_Click"/>
+                                    <Button x:Name="GetObsBtn" Content="Get OBS" Margin="0,8,0,0" Click="GetObs_Click" Visibility="Collapsed"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Phone as webcam" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                               Text="Use your phone's camera in Google Meet, Zoom, Teams or Discord, over Wi-Fi, so you can move around. On the phone, swipe home and it keeps filming in a small floating window. Encrypted."/>
+                                    <TextBlock x:Name="WebcamState" Margin="0,10,0,0" FontSize="13" TextWrapping="Wrap"/>
+                                    <CheckBox x:Name="WebcamFillBox" Margin="0,12,0,0" Click="WebcamFill_Click">
+                                        <StackPanel>
+                                            <TextBlock Text="Fill the frame with an upright phone"/>
+                                            <TextBlock Style="{StaticResource Sub}" TextWrapping="Wrap" Text="A sideways phone always fills the call's picture. Upright, it's shown whole with bars at the sides; turn this on to fill instead (it crops a lot). For the widest view, hold the phone sideways and tap 0.5×."/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- the phone as an extra monitor for this laptop -->
+                        <Border Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="20,0,0,0">
+                                    <Button x:Name="ExtendBtn" Content="Extend to phone" Style="{StaticResource BtnInk}" Click="Extend_Click"/>
+                                    <Button x:Name="GetDisplayBtn" Content="Get the virtual display" Margin="0,8,0,0" Click="GetVirtualDisplay_Click"/>
+                                    <Button Content="Arrange displays" Style="{StaticResource BtnQuiet}" Margin="0,6,0,0" Click="ArrangeDisplays_Click"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Phone as a second screen" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                               Text="Drag windows onto your phone like onto a second monitor. Tap to click, drag to drag, long-press for right-click, two fingers to scroll. Encrypted, over Wi-Fi."/>
+                                    <TextBlock x:Name="SecondScreenState" Margin="0,10,0,0" FontSize="13" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.ColumnSpan="2" Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="scrcpy" Style="{StaticResource Cap}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,12"
+                                           Text="See and control your phone in a window. Video is too heavy for Bluetooth, so mirroring runs through scrcpy over USB or Wi-Fi."/>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Browse" Margin="8,0,0,0" Click="BrowseScrcpy_Click"/>
+                                    <Button x:Name="InstallScrcpyBtn" DockPanel.Dock="Right" Content="Install scrcpy" Style="{StaticResource BtnInk}" Margin="8,0,0,0" Click="InstallScrcpy_Click" Visibility="Collapsed"/>
+                                    <TextBox x:Name="ScrcpyPath" Text="scrcpy" AutomationProperties.Name="Path to scrcpy" LostFocus="ScrcpyPath_LostFocus"/>
+                                </DockPanel>
+                                <TextBlock x:Name="ScrcpyState" Style="{StaticResource Sub}" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="USB cable" Style="{StaticResource Cap}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0"
+                                           Text="Turn on USB debugging in the phone's developer options, plug it in, and allow this computer when the phone asks."/>
+                                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                    <Button Content="Mirror over USB" Style="{StaticResource BtnInk}" Click="MirrorUsb_Click"/>
+                                    <CheckBox x:Name="UsbSoundBox" Content="With sound" IsChecked="True" Margin="16,0,0,0" VerticalAlignment="Center"
+                                              Click="UsbSound_Click" ToolTip="The phone's audio plays on this laptop too (Android 11 or newer)"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="Wi-Fi, no cable" Style="{StaticResource Cap}"/>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                           Text="Your phone's screen in a window, over Wi-Fi. No developer options: the phone asks to share its screen, you tap Start. Click to tap, drag to swipe, right-click for Back."/>
+                                <DockPanel Margin="0,12,0,0">
+                                    <TextBlock Text="Phone address" FontSize="13" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <TextBox x:Name="PhoneIpBox" Tag="Fills in when connected" AutomationProperties.Name="Phone IP address"/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <Button Content="Mirror over Wi-Fi" Style="{StaticResource BtnInk}" Click="MirrorWifi_Click"/>
+                                    <CheckBox x:Name="MirrorSoundBox" Content="With sound" IsChecked="True" Margin="16,0,0,0" VerticalAlignment="Center"
+                                              Click="MirrorSound_Click" ToolTip="The phone's audio plays on this laptop too"/>
+                                </StackPanel>
+                                <CheckBox x:Name="WifiAdbBox" Content="USB quality over Wi-Fi (scrcpy)" Margin="0,12,0,0" Click="WifiAdb_Click"
+                                          ToolTip="Up to 120 fps, notifications stay visible, all sound. Whenever the phone is plugged in, Nyx turns on Wi-Fi debugging until the phone restarts; Mirror over Wi-Fi then uses scrcpy. New devices still need you to tap Allow on the phone. Best off on public Wi-Fi."/>
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button x:Name="PayFixBtn" Content="Keep payment apps working" Click="PayFix_Click" Margin="0,0,8,0"
+                                            ToolTip="Once, with the phone plugged in by USB: Nyx turns its laptop-control switch on only while you mirror, and off right after. Payment and bank apps refuse to open while it's on."/>
+                                    <Button x:Name="NoAskBtn" Content="Stop asking on the phone" Click="NoAsk_Click"
+                                            ToolTip="Once, with the phone plugged in by USB (USB debugging on): Android stops asking Start? each time. Only this paired laptop can start it, over Nyx's encrypted link. Press again to undo."/>
+                                </StackPanel>
+
+                                <TextBlock Text="Or with scrcpy (sharper, needs developer options)" Style="{StaticResource Cap}" Margin="0,18,0,6"/>
+                                <TextBlock Style="{StaticResource Sub}" TextWrapping="Wrap"
+                                           Text="Developer options &gt; Wireless debugging, on. First time: Pair device with pairing code, and type its port (after the colon) and 6-digit code here."/>
+                                <Button Content="scrcpy over Wi-Fi" HorizontalAlignment="Left" Margin="0,10,0,0" Click="ScrcpyWifi_Click"/>
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="PairPortBox" Tag="Port, e.g. 37425" MaxLength="5" AutomationProperties.Name="Pairing port"/>
+                                    <TextBox x:Name="PairCodeBox" Grid.Column="2" Tag="6-digit code" MaxLength="6" AutomationProperties.Name="Pairing code"/>
+                                    <Button Grid.Column="3" Content="Pair" Margin="8,0,0,0" Click="PairWireless_Click"/>
+                                </Grid>
+                                <TextBlock Margin="0,12,0,0" FontSize="12.5">
+                                    <Hyperlink Click="EnableTcpip_Click" Foreground="{DynamicResource Ink2}">Android 10 or older? Use the cable once instead</Hyperlink>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock x:Name="MirrorStatus" Grid.Row="2" Grid.ColumnSpan="2" TextWrapping="Wrap" Style="{StaticResource Sub}" FontSize="14" Margin="12,10,12,0"/>
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- ================================ settings ================================ -->
+                <ScrollViewer x:Name="PageSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="720" HorizontalAlignment="Left">
+                        <Border Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Right" VerticalAlignment="Center" Margin="20,0,0,0">
+                                    <Border Background="{DynamicResource Tile2}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="21" Padding="4">
+                                        <Grid>
+                                            <Canvas IsHitTestVisible="False">
+                                                <Border x:Name="SegThumb" Width="76" Height="34" CornerRadius="17" Background="{DynamicResource Ink}">
+                                                    <Border.RenderTransform><TranslateTransform x:Name="SegThumbX"/></Border.RenderTransform>
+                                                </Border>
+                                            </Canvas>
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton x:Name="ModeLight" Style="{StaticResource Seg}" Width="76" Content="Light" GroupName="Theme" Checked="Mode_Checked"/>
+                                                <RadioButton x:Name="ModeDark" Style="{StaticResource Seg}" Width="76" Content="Dark" GroupName="Theme" Checked="Mode_Checked"/>
+                                                <RadioButton x:Name="ModeAuto" Style="{StaticResource Seg}" Width="76" Content="Auto" GroupName="Theme" Checked="Mode_Checked"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <StackPanel>
+                                    <TextBlock Text="Appearance" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0" Text="Auto follows the light or dark setting in Windows."/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="Connection" Style="{StaticResource H2}"/>
+                                <CheckBox x:Name="AutoReconnect" IsChecked="True" Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Reconnect automatically"/>
+                                        <TextBlock Style="{StaticResource Sub}" Text="When the Bluetooth link drops, try again every few seconds. On Wi-Fi, Nyx reconnects by itself as soon as your phone is back."/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="TodayWholeDayBox" Margin="0,16,0,0" Click="TodayWholeDay_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Today tile counts the whole day"/>
+                                        <TextBlock Style="{StaticResource Sub}" TextWrapping="Wrap" Text="On: every notification your phone got today, even while the laptop was off. Off: only the ones still on your phone right now."/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="PopupsInGamesBox" Margin="0,16,0,0" Click="PopupsInGames_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Show pop-ups during games"/>
+                                        <TextBlock Style="{StaticResource Sub}" TextWrapping="Wrap" Text="Off: while a game or other full-screen app is in front, notifications and texts arrive quietly in Nyx's lists instead. Calls always pop up."/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="StartWithWindowsBox" Margin="0,16,0,0" Click="StartWithWindows_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Start Nyx with Windows"/>
+                                        <TextBlock Style="{StaticResource Sub}" Text="Opens quietly when you sign in, so your phone links up the moment both are on Wi-Fi."/>
+                                    </StackPanel>
+                                </CheckBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- which apps' notifications come to the laptop -->
+                        <Border x:Name="NotifAppsCard" Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="All on" Style="{StaticResource BtnQuiet}" Click="NotifAppsAll_Click" Tag="on"/>
+                                        <Button Content="All off" Style="{StaticResource BtnQuiet}" Click="NotifAppsAll_Click" Tag="off"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Notifications from apps" Style="{StaticResource H2}"/>
+                                        <TextBlock x:Name="NotifAppsSub" Style="{StaticResource Sub}" Margin="0,4,16,0" TextWrapping="Wrap"
+                                                   Text="Pick which apps' notifications come to this laptop. Switched off, they stay on your phone only: no pop-up here and not counted in Today."/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <Grid Margin="0,14,0,8">
+                                    <TextBox x:Name="NotifAppSearch" Tag="Search apps" Padding="36,0,12,0"
+                                             TextChanged="NotifAppSearch_TextChanged" AutomationProperties.Name="Search apps"/>
+                                    <local:LineIcon Data="{StaticResource IconSearch}" Width="14" Height="14" Margin="14,0,0,0"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource Ink3}"/>
+                                </Grid>
+                                <TextBlock x:Name="NotifAppsEmpty" Style="{StaticResource Sub}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                           Text="Connect your phone to see its apps here."/>
+                                <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl x:Name="NotifAppList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding On, Mode=OneWay}" Click="NotifApp_Click" Margin="0,6,4,6"
+                                                          AutomationProperties.Name="{Binding Name}">
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Button x:Name="IphoneBtn" DockPanel.Dock="Right" Content="Connect iPhone" Style="{StaticResource BtnInk}"
+                                            VerticalAlignment="Center" Click="IphoneConnect_Click"/>
+                                    <StackPanel>
+                                        <TextBlock Text="iPhone notifications · beta" Style="{StaticResource H2}"/>
+                                        <TextBlock Style="{StaticResource Sub}" Margin="0,4,16,0" TextWrapping="Wrap"
+                                                   Text="See your iPhone's notifications here too. No app needed on the iPhone."/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource Sub}" Margin="0,12,0,0" TextWrapping="Wrap" LineHeight="21">
+                                    1. Windows Settings &gt; Bluetooth &amp; devices &gt; Add device &gt; Bluetooth, with the iPhone's Bluetooth settings open. Pick the iPhone and confirm the code on both.<LineBreak/>
+                                    2. On the iPhone: Settings &gt; Bluetooth &gt; ⓘ next to this laptop &gt; turn on Share System Notifications.<LineBreak/>
+                                    3. Press Connect iPhone.
+                                </TextBlock>
+                                <TextBlock x:Name="IphoneState" Margin="0,10,0,0" FontSize="13" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TileBox}" Margin="6">
+                            <StackPanel>
+                                <TextBlock Text="Your phone controls this laptop" Style="{StaticResource H2}"/>
+                                <CheckBox x:Name="AllowControlBox" Margin="0,14,0,0" Click="AllowControl_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Allow lock, sleep, restart and shut down from the phone"/>
+                                        <TextBlock Style="{StaticResource Sub}" Text="Only your paired phone can do this. Restart and shut down wait 15 seconds, and a note here lets you cancel."/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <TextBlock Text="Wake from the phone" Style="{StaticResource Cap}" Margin="0,18,0,6"/>
+                                <TextBlock x:Name="WakeState" Style="{StaticResource Sub}" TextWrapping="Wrap"
+                                           Text="Checking whether the Wi-Fi can wake this laptop…"/>
+                                <Button x:Name="WakeSetupBtn" Content="Let the phone wake this laptop" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                        Click="WakeSetup_Click" Visibility="Collapsed"
+                                        ToolTip="Turns on Windows' Wake on Magic Packet for the Wi-Fi card. Windows asks for permission first; the Wi-Fi drops for a few seconds."/>
+                                <TextBlock Text="Paired phones" Style="{StaticResource Cap}" Margin="0,18,0,6"/>
+                                <ItemsControl x:Name="PairedList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,4">
+                                                <Button DockPanel.Dock="Right" Content="Forget" Style="{StaticResource BtnQuiet}" Height="30"
+                                                        Click="ForgetPhone_Click" Tag="15"/>
+                                                <local:LineIcon Data="{StaticResource IconSmartphone}" Width="15" Height="15" Margin="0,0,10,0"/>
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="PairedEmpty" Style="{StaticResource Sub}"
+                                           Text="None yet. Connect once over Bluetooth and the phone pairs itself; after that it joins over Wi-Fi automatically."/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TileBox}" Margin="6">
+                            <DockPanel>
+                                <local:DotText x:Name="VersionDots" DockPanel.Dock="Right" Text="V1.4" Dot="3" VerticalAlignment="Center" Margin="28,0,4,0"/>
+                                <StackPanel>
+                                    <TextBlock Text="About" Style="{StaticResource H2}"/>
+                                    <TextBlock Style="{StaticResource Sub}" Margin="0,4,0,0"
+                                               Text="Calls, texts and notifications from your Android phone, over Bluetooth or encrypted Wi-Fi. No account, no cloud."/>
+                                    <TextBlock x:Name="VersionText" Style="{StaticResource Meta}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+        <!-- drop files anywhere on the window to send them to the phone -->
+        <Border x:Name="DropVeil" Grid.ColumnSpan="2" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="50"
+                Background="{DynamicResource Canvas}" Opacity="0.94">
+            <Border Margin="28" CornerRadius="28" BorderThickness="2" BorderBrush="{DynamicResource Red}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <local:LineIcon Data="{StaticResource IconUpload}" Width="34" Height="34" HorizontalAlignment="Center"/>
+                    <local:DotText Text="DROP TO SEND" Dot="4" HorizontalAlignment="Center" Margin="0,22,0,0"/>
+                    <TextBlock x:Name="DropHint" Style="{StaticResource Sub}" HorizontalAlignment="Center" Margin="0,14,0,0"
+                               Text="They go to your phone's Downloads/Nyx folder."/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>

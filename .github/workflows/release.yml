@@ -1,0 +1,68 @@
+name: Release
+
+# Publish a release on GitHub (tag like v1.1.0) and this builds both downloads and attaches
+# them to it: Nyx-windows-x64.exe and Nyx-phone.apk. The website's download buttons point at
+# the latest release, so they update by themselves.
+#
+# To sign the phone app, add these repository secrets (Settings > Secrets and variables > Actions):
+#   ANDROID_KEYSTORE_BASE64   the .jks file, base64-encoded
+#   ANDROID_STORE_PASSWORD    its store password
+#   ANDROID_KEY_ALIAS         the key alias (for example nyx)
+#   ANDROID_KEY_PASSWORD      the key password
+# Without them the APK is unsigned, and phones won't install it.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Release signing key (from secrets, never stored in the repo)
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("android/nyx-release.jks", [Convert]::FromBase64String($env:KEYSTORE))
+          @(
+            "storeFile=nyx-release.jks",
+            "storePassword=$env:STORE_PASSWORD",
+            "keyAlias=$env:KEY_ALIAS",
+            "keyPassword=$env:KEY_PASSWORD"
+          ) | Set-Content android/keystore.properties
+
+      - name: Build both downloads
+        shell: pwsh
+        run: ./build-release.ps1
+
+      - name: Remove the signing key from the runner
+        if: always()
+        shell: pwsh
+        run: Remove-Item android/nyx-release.jks, android/keystore.properties -ErrorAction SilentlyContinue
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: gh release upload "${{ github.event.release.tag_name }}" (Get-ChildItem dist/release/*).FullName --clobber
